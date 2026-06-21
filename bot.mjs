@@ -271,9 +271,13 @@ function createBot(account) {
     })
 
     client.on('error', (err) => {
-      const isAuthError = err.message?.includes('invalid_grant') || err.message?.includes('expired_token') || err.message?.includes('AADSTS')
+      // 'device_code has already been used' = User hat sich eingeloggt, Code wurde verbraucht
+      // In diesem Fall Cache NICHT löschen — Tokens sind evtl. gültig, einfach reconnecten
+      const codeAlreadyUsed = err.message?.includes('device_code') && err.message?.includes('already been used')
+      const isAuthError = !codeAlreadyUsed && (err.message?.includes('invalid_grant') || err.message?.includes('expired_token') || err.message?.includes('AADSTS'))
       log(`❌ ${err.message}`)
-      if (isAuthError) log(`🗑️ Auth-Fehler — Cache wird geleert`)
+      if (codeAlreadyUsed) log(`♻️ Login erkannt — reconnecte mit neuen Tokens`)
+      else if (isAuthError) log(`🗑️ Auth-Fehler — Cache wird geleert`)
       scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
     })
 
