@@ -5,8 +5,24 @@ import { mkdirSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import http from 'http'
 
 const PORT = process.env.PORT || 3000
-http.createServer((req, res) => { res.writeHead(200); res.end('Bot läuft!') })
-  .listen(PORT, () => console.log(`Ping-Server läuft auf Port ${PORT}`))
+const botStatus = {}
+
+http.createServer((req, res) => {
+  if (req.url === '/ping' || req.url === '/health') {
+    const uptime = Math.floor(process.uptime())
+    const status = {
+      ok: true,
+      service: process.env.BOT_SET ? 'bot-set-' + process.env.BOT_SET : 'bot-all',
+      uptime_seconds: uptime,
+      bots: Object.fromEntries(Object.entries(botStatus).map(([id, s]) => [id, s]))
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(status))
+  } else {
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.end('Bot läuft! Ping: /ping')
+  }
+}).listen(PORT, () => console.log(`Ping-Server läuft auf Port ${PORT} — Status: /ping`))
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_API
@@ -215,6 +231,7 @@ function createBot(account) {
     client.on('spawn', () => {
       hasSpawned = true
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
+      botStatus[account.id] = { online: true, since: new Date().toISOString() }
       log('✅ Im Server!')
       setTimeout(() => sendCommand('/home 1'), 2000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
@@ -248,6 +265,7 @@ function createBot(account) {
     client.on('disconnect', (reason) => {
       const msg = reason?.message || ''
       const isSession = msg.includes('bereits auf dem Netzwerk') || msg.includes('already logged in')
+      botStatus[account.id] = { online: false, since: new Date().toISOString() }
       log(isSession ? `⏳ Session aktiv — warte 3min...` : `⚠️ Disconnect: ${stripColors(msg)}`)
       scheduleReconnect(isSession ? RECONNECT_DELAY_SESSION_MS : RECONNECT_DELAY_MS)
     })
