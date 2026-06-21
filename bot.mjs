@@ -54,7 +54,7 @@ function stopAllBots() {
   setTimeout(() => {
     globalStopped = false
     console.log(`[System] 🟢 10 Minuten vorbei — Bots reconnecten...`)
-    allBots.forEach((bot, i) => setTimeout(() => bot.connect(), i * 3000))
+    allBots.forEach((bot, i) => setTimeout(() => bot.forceConnect(), i * 3000))
   }, STOP_DURATION_MS)
 }
 
@@ -165,12 +165,18 @@ function createBot(account) {
     client.on('close', () => { log('Geschlossen.'); scheduleReconnect() })
   }
 
+  // Setzt reconnecting zurück und verbindet — für den !stop Reconnect
+  function forceConnect() {
+    reconnecting = false
+    connect()
+  }
+
   function shutdown() {
     reconnecting = true
     if (client) try { client.disconnect() } catch {}
   }
 
-  return { connect, shutdown }
+  return { connect, forceConnect, shutdown }
 }
 
 console.log('🚀 Multi-Bot startet...')
