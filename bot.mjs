@@ -29,6 +29,9 @@ const ACCOUNTS = [
   { id: 'account6', username: 'Bot6' },
 ]
 
+let globalStopped = false
+const allBots = []
+
 function stripColors(str) {
   return str.replace(/§[0-9a-fk-orA-FK-OR]/g, '')
 }
@@ -41,6 +44,18 @@ function parseChat(raw) {
     sender: clean.slice(0, colonIdx).trim(),
     content: clean.slice(colonIdx + 2).trim(),
   }
+}
+
+function stopAllBots() {
+  globalStopped = true
+  console.log(`[System] 🛑 Alle Bots werden gestoppt...`)
+  allBots.forEach(b => b.shutdown())
+}
+
+function startAllBots() {
+  globalStopped = false
+  console.log(`[System] 🟢 Alle Bots werden neu gestartet...`)
+  allBots.forEach((bot, i) => setTimeout(() => bot.connect(), i * 3000))
 }
 
 function createBot(account) {
@@ -74,14 +89,18 @@ function createBot(account) {
   }
 
   function scheduleReconnect(delay = RECONNECT_DELAY_MS) {
-    if (reconnecting) return
+    if (reconnecting || globalStopped) return
     reconnecting = true
     log(`🔄 Reconnect in ${delay / 1000}s...`)
-    setTimeout(() => { reconnecting = false; connect() }, delay)
+    setTimeout(() => {
+      if (globalStopped) { reconnecting = false; return }
+      reconnecting = false
+      connect()
+    }, delay)
   }
 
   function connect() {
-    if (reconnecting) return
+    if (reconnecting || globalStopped) return
     log(`Verbinde...`)
     try {
       client = bedrock.createClient({
@@ -125,6 +144,14 @@ function createBot(account) {
           lastCommandTime = now
           log(`📩 → ${TPA_COMMAND}`)
           sendCommand(TPA_COMMAND)
+        } else if (msgContent.includes('!stop')) {
+          lastCommandTime = now
+          log(`🛑 Stop-Befehl empfangen — alle Bots werden getrennt`)
+          stopAllBots()
+        } else if (msgContent.includes('!start')) {
+          lastCommandTime = now
+          log(`🟢 Start-Befehl empfangen — alle Bots reconnecten`)
+          startAllBots()
         } else {
           log(`⏭️ Ignoriert: "${msgContent}"`)
         }
@@ -142,11 +169,17 @@ function createBot(account) {
     client.on('close', () => { log('Geschlossen.'); scheduleReconnect() })
   }
 
-  return { connect, shutdown: () => { if (client) try { client.disconnect() } catch {} } }
+  function shutdown() {
+    reconnecting = true
+    if (client) try { client.disconnect() } catch {}
+  }
+
+  return { connect, shutdown }
 }
 
 console.log('🚀 Multi-Bot startet...')
 const bots = ACCOUNTS.map(acc => createBot(acc))
+bots.forEach(b => allBots.push(b))
 bots.forEach((bot, i) => setTimeout(() => bot.connect(), i * 3000))
 process.on('SIGINT', () => { bots.forEach(b => b.shutdown()); setTimeout(() => process.exit(0), 2000) })
 process.on('SIGTERM', () => { bots.forEach(b => b.shutdown()); setTimeout(() => process.exit(0), 2000) })
