@@ -1,7 +1,7 @@
 import bedrock from 'bedrock-protocol'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { mkdirSync } from 'fs'
+import { mkdirSync, rmSync } from 'fs'
 import http from 'http'
 
 const PORT = process.env.PORT || 3000
@@ -69,6 +69,14 @@ function createBot(account) {
     console.log(`[${new Date().toLocaleTimeString('de-DE')}] [${account.id}] ${msg}`)
   }
 
+  function clearCache() {
+    try {
+      rmSync(cacheDir, { recursive: true, force: true })
+      mkdirSync(cacheDir, { recursive: true })
+      log('🗑️ Auth-Cache geleert — neuer Login-Code wird generiert')
+    } catch {}
+  }
+
   function sendCommand(command) {
     try {
       client.queue('command_request', {
@@ -88,9 +96,10 @@ function createBot(account) {
     }
   }
 
-  function scheduleReconnect(delay = RECONNECT_DELAY_MS) {
+  function scheduleReconnect(delay = RECONNECT_DELAY_MS, resetCache = false) {
     if (reconnecting || globalStopped) return
     reconnecting = true
+    if (resetCache) clearCache()
     log(`🔄 Reconnect in ${delay / 1000}s...`)
     setTimeout(() => {
       if (globalStopped) { reconnecting = false; return }
@@ -114,7 +123,8 @@ function createBot(account) {
       })
     } catch (err) {
       log(`Fehler: ${err.message}`)
-      scheduleReconnect()
+      const isAuthError = err.message?.includes('invalid_grant') || err.message?.includes('expired_token')
+      scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
       return
     }
 
@@ -161,11 +171,15 @@ function createBot(account) {
       scheduleReconnect(isSession ? RECONNECT_DELAY_SESSION_MS : RECONNECT_DELAY_MS)
     })
 
-    client.on('error', (err) => { log(`❌ ${err.message}`); scheduleReconnect() })
+    client.on('error', (err) => {
+      const isAuthError = err.message?.includes('invalid_grant') || err.message?.includes('expired_token')
+      log(`❌ ${err.message}`)
+      scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
+    })
+
     client.on('close', () => { log('Geschlossen.'); scheduleReconnect() })
   }
 
-  // Setzt reconnecting zurück und verbindet — für den !stop Reconnect
   function forceConnect() {
     reconnecting = false
     connect()
