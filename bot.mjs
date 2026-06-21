@@ -1,7 +1,7 @@
 import bedrock from 'bedrock-protocol'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { mkdirSync, rmSync } from 'fs'
+import { mkdirSync, rmSync, readdirSync, readFileSync } from 'fs'
 import http from 'http'
 
 const PORT = process.env.PORT || 3000
@@ -11,6 +11,8 @@ http.createServer((req, res) => {
 }).listen(PORT, () => console.log(`Ping-Server läuft auf Port ${PORT}`))
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN
+const GITHUB_REPO = 'manfrankfurt15-lgtm/Afk-bot'
 
 const SERVER_HOST = 'blockbande.de'
 const SERVER_PORT = 19132
@@ -47,6 +49,47 @@ function parseChat(raw) {
   }
 }
 
+async function saveTokensToGitHub(accountId, cacheDir) {
+  if (!GITHUB_TOKEN) return
+  try {
+    const files = readdirSync(cacheDir)
+    for (const file of files) {
+      const filePath = join(cacheDir, file)
+      const content = readFileSync(filePath)
+      const base64 = content.toString('base64')
+      const githubPath = `auth-cache/${accountId}/${file}`
+
+      // Check if file already exists in GitHub
+      let sha = undefined
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`, {
+          headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
+        })
+        if (res.ok) {
+          const j = await res.json()
+          sha = j.sha
+        }
+      } catch {}
+
+      const body = { message: `[auto] Token gespeichert: ${accountId}/${file}`, content: base64 }
+      if (sha) body.sha = sha
+
+      await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+    }
+    console.log(`[${accountId}] 💾 Tokens in GitHub gespeichert — bleibt dauerhaft eingeloggt!`)
+  } catch (err) {
+    console.log(`[${accountId}] ⚠️ GitHub-Speicher fehlgeschlagen: ${err.message}`)
+  }
+}
+
 function stopAllBots() {
   globalStopped = true
   console.log(`[System] 🛑 Alle Bots gestoppt — reconnect in 10 Minuten automatisch`)
@@ -73,7 +116,7 @@ function createBot(account) {
     try {
       rmSync(cacheDir, { recursive: true, force: true })
       mkdirSync(cacheDir, { recursive: true })
-      log('🗑️ Auth-Cache geleert — neuer Login-Code wird generiert')
+      log('🗑️ Auth-Cache geleert — neuer Login-Code kommt...')
     } catch {}
   }
 
@@ -131,6 +174,8 @@ function createBot(account) {
     client.on('spawn', () => {
       log('✅ Im Server!')
       setTimeout(() => sendCommand('/home 1'), 2000)
+      // Tokens in GitHub speichern für permanente Persistenz
+      setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
     })
 
     client.on('text', (packet) => {
