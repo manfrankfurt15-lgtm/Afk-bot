@@ -107,7 +107,7 @@ function createBot(account) {
         host: SERVER_HOST,
         port: SERVER_PORT,
         username: account.username,
-        offline: false,
+        offline: true,
         connectTimeout: 20000,
         skipPing: false,
         profilesFolder: cacheDir,
