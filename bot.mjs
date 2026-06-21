@@ -5,10 +5,8 @@ import { mkdirSync, rmSync, readdirSync, readFileSync } from 'fs'
 import http from 'http'
 
 const PORT = process.env.PORT || 3000
-http.createServer((req, res) => {
-  res.writeHead(200)
-  res.end('Bot läuft!')
-}).listen(PORT, () => console.log(`Ping-Server läuft auf Port ${PORT}`))
+http.createServer((req, res) => { res.writeHead(200); res.end('Bot läuft!') })
+  .listen(PORT, () => console.log(`Ping-Server läuft auf Port ${PORT}`))
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
@@ -21,6 +19,7 @@ const TPA_COMMAND = `/tpa ${TRIGGER_PLAYER}`
 const RECONNECT_DELAY_MS = 15000
 const RECONNECT_DELAY_SESSION_MS = 180000
 const COMMAND_COOLDOWN_MS = 5000
+const AUTH_TIMEOUT_MS = 90000  // 90s — wenn kein Spawn, Cache leeren & neu versuchen
 
 const ACCOUNTS = [
   { id: 'account1', username: 'Bot1' },
@@ -43,10 +42,7 @@ function parseChat(raw) {
   const clean = stripColors(raw)
   const colonIdx = clean.indexOf(': ')
   if (colonIdx === -1) return { sender: '', content: clean }
-  return {
-    sender: clean.slice(0, colonIdx).trim(),
-    content: clean.slice(colonIdx + 2).trim(),
-  }
+  return { sender: clean.slice(0, colonIdx).trim(), content: clean.slice(colonIdx + 2).trim() }
 }
 
 async function saveTokensToGitHub(accountId, cacheDir) {
@@ -54,33 +50,21 @@ async function saveTokensToGitHub(accountId, cacheDir) {
   try {
     const files = readdirSync(cacheDir)
     for (const file of files) {
-      const filePath = join(cacheDir, file)
-      const content = readFileSync(filePath)
+      const content = readFileSync(join(cacheDir, file))
       const base64 = content.toString('base64')
       const githubPath = `auth-cache/${accountId}/${file}`
-
-      // Check if file already exists in GitHub
-      let sha = undefined
+      let sha
       try {
-        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`, {
+        const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`, {
           headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
         })
-        if (res.ok) {
-          const j = await res.json()
-          sha = j.sha
-        }
+        if (r.ok) sha = (await r.json()).sha
       } catch {}
-
-      const body = { message: `[auto] Token gespeichert: ${accountId}/${file}`, content: base64 }
+      const body = { message: `[auto] Token: ${accountId}/${file}`, content: base64 }
       if (sha) body.sha = sha
-
       await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github+json',
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
     }
@@ -107,6 +91,7 @@ function createBot(account) {
   let client = null
   let reconnecting = false
   let lastCommandTime = 0
+  let spawnTimer = null
 
   function log(msg) {
     console.log(`[${new Date().toLocaleTimeString('de-DE')}] [${account.id}] ${msg}`)
@@ -124,22 +109,16 @@ function createBot(account) {
     try {
       client.queue('command_request', {
         command,
-        origin: {
-          type: 'player',
-          uuid: '00000000-0000-0000-0000-000000000000',
-          request_id: '',
-          player_entity_id: 0n,
-        },
+        origin: { type: 'player', uuid: '00000000-0000-0000-0000-000000000000', request_id: '', player_entity_id: 0n },
         internal: false,
         version: '52',
       })
       log(`➡️ ${command}`)
-    } catch (err) {
-      log(`Fehler: ${err.message}`)
-    }
+    } catch (err) { log(`Fehler: ${err.message}`) }
   }
 
   function scheduleReconnect(delay = RECONNECT_DELAY_MS, resetCache = false) {
+    if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
     if (reconnecting || globalStopped) return
     reconnecting = true
     if (resetCache) clearCache()
@@ -154,6 +133,7 @@ function createBot(account) {
   function connect() {
     if (reconnecting || globalStopped) return
     log(`Verbinde...`)
+
     try {
       client = bedrock.createClient({
         host: SERVER_HOST,
@@ -165,16 +145,22 @@ function createBot(account) {
         profilesFolder: cacheDir,
       })
     } catch (err) {
-      log(`Fehler: ${err.message}`)
-      const isAuthError = err.message?.includes('invalid_grant') || err.message?.includes('expired_token')
-      scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
+      log(`Fehler beim Erstellen: ${err.message}`)
+      scheduleReconnect(RECONNECT_DELAY_MS, true)
       return
     }
 
+    // Wenn nach 90s kein Spawn → Auth gescheitert → Cache leeren & neu
+    spawnTimer = setTimeout(() => {
+      log(`⏰ Timeout — kein Spawn nach ${AUTH_TIMEOUT_MS/1000}s, Cache leeren & neu verbinden`)
+      try { client?.disconnect() } catch {}
+      scheduleReconnect(RECONNECT_DELAY_MS, true)
+    }, AUTH_TIMEOUT_MS)
+
     client.on('spawn', () => {
+      if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       log('✅ Im Server!')
       setTimeout(() => sendCommand('/home 1'), 2000)
-      // Tokens in GitHub speichern für permanente Persistenz
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
     })
 
@@ -192,17 +178,11 @@ function createBot(account) {
         if (now - lastCommandTime < COMMAND_COOLDOWN_MS) return
         const msgContent = content || cleanRaw
         if (msgContent.includes('!home')) {
-          lastCommandTime = now
-          log(`🏠 → /sethome 1`)
-          sendCommand('/sethome 1')
+          lastCommandTime = now; log(`🏠 → /sethome 1`); sendCommand('/sethome 1')
         } else if (msgContent.includes('!tpa')) {
-          lastCommandTime = now
-          log(`📩 → ${TPA_COMMAND}`)
-          sendCommand(TPA_COMMAND)
+          lastCommandTime = now; log(`📩 → ${TPA_COMMAND}`); sendCommand(TPA_COMMAND)
         } else if (msgContent.includes('!stop')) {
-          lastCommandTime = now
-          log(`🛑 Stop-Befehl empfangen — Bots pausieren 10 Minuten`)
-          stopAllBots()
+          lastCommandTime = now; log(`🛑 Stop-Befehl empfangen — Bots pausieren 10 Minuten`); stopAllBots()
         } else {
           log(`⏭️ Ignoriert: "${msgContent}"`)
         }
@@ -225,12 +205,10 @@ function createBot(account) {
     client.on('close', () => { log('Geschlossen.'); scheduleReconnect() })
   }
 
-  function forceConnect() {
-    reconnecting = false
-    connect()
-  }
+  function forceConnect() { reconnecting = false; connect() }
 
   function shutdown() {
+    if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
     reconnecting = true
     if (client) try { client.disconnect() } catch {}
   }
