@@ -1,7 +1,7 @@
 import bedrock from 'bedrock-protocol'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { mkdirSync, rmSync, readdirSync, readFileSync } from 'fs'
+import { mkdirSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import http from 'http'
 
 const PORT = process.env.PORT || 3000
@@ -9,7 +9,9 @@ http.createServer((req, res) => { res.writeHead(200); res.end('Bot läuft!') })
   .listen(PORT, () => console.log(`Ping-Server läuft auf Port ${PORT}`))
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN
+
+// FIX: Unterstützt sowohl GITHUB_TOKEN als auch GITHUB_API (Render-kompatibel)
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_API
 const GITHUB_REPO = 'manfrankfurt15-lgtm/Afk-bot'
 
 const SERVER_HOST = 'blockbande.de'
@@ -19,7 +21,11 @@ const TPA_COMMAND = `/tpa ${TRIGGER_PLAYER}`
 const RECONNECT_DELAY_MS = 15000
 const RECONNECT_DELAY_SESSION_MS = 180000
 const COMMAND_COOLDOWN_MS = 5000
-const AUTH_TIMEOUT_MS = 90000  // 90s — wenn kein Spawn, Cache leeren & neu versuchen
+
+// FIX: Kein Auth-Timeout mehr der den Cache löscht.
+// Stattdessen: nur bei echten Auth-Fehlern (invalid_grant etc.) Cache leeren.
+// Device-Code-Flow braucht Zeit — wir warten geduldig.
+const DEVICE_CODE_WAIT_MS = 20 * 60 * 1000  // 20 Minuten warten auf Device-Code-Auth
 
 const ACCOUNTS = [
   { id: 'account1', username: 'Bot1' },
@@ -43,6 +49,44 @@ function parseChat(raw) {
   const colonIdx = clean.indexOf(': ')
   if (colonIdx === -1) return { sender: '', content: clean }
   return { sender: clean.slice(0, colonIdx).trim(), content: clean.slice(colonIdx + 2).trim() }
+}
+
+// FIX: Tokens von GitHub laden BEVOR der Bot verbindet
+async function loadTokensFromGitHub(accountId, cacheDir) {
+  if (!GITHUB_TOKEN) {
+    console.log(`[${accountId}] ⚠️ Kein GITHUB_TOKEN/GITHUB_API gesetzt — kein Token-Download`)
+    return
+  }
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/auth-cache/${accountId}`, {
+      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
+    })
+    if (!r.ok) {
+      console.log(`[${accountId}] ℹ️ Noch keine Tokens in GitHub — warte auf Device-Code-Auth`)
+      return
+    }
+    const files = await r.json()
+    if (!Array.isArray(files) || files.length === 0) {
+      console.log(`[${accountId}] ℹ️ Token-Ordner leer in GitHub — warte auf Device-Code-Auth`)
+      return
+    }
+    mkdirSync(cacheDir, { recursive: true })
+    let loaded = 0
+    for (const file of files) {
+      if (file.type !== 'file') continue
+      const fr = await fetch(file.download_url, {
+        headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}` }
+      })
+      if (fr.ok) {
+        const content = await fr.text()
+        writeFileSync(join(cacheDir, file.name), content, 'utf8')
+        loaded++
+      }
+    }
+    console.log(`[${accountId}] ✅ ${loaded} Token-Datei(en) von GitHub geladen`)
+  } catch (err) {
+    console.log(`[${accountId}] ⚠️ Token-Download fehlgeschlagen: ${err.message}`)
+  }
 }
 
 async function saveTokensToGitHub(accountId, cacheDir) {
@@ -92,6 +136,7 @@ function createBot(account) {
   let reconnecting = false
   let lastCommandTime = 0
   let spawnTimer = null
+  let hasSpawned = false
 
   function log(msg) {
     console.log(`[${new Date().toLocaleTimeString('de-DE')}] [${account.id}] ${msg}`)
@@ -132,6 +177,7 @@ function createBot(account) {
 
   function connect() {
     if (reconnecting || globalStopped) return
+    hasSpawned = false
     log(`Verbinde...`)
 
     try {
@@ -150,14 +196,22 @@ function createBot(account) {
       return
     }
 
-    // Wenn nach 90s kein Spawn → Auth gescheitert → Cache leeren & neu
+    // FIX: Langer Timeout nur für den Fall, dass gar keine Antwort kommt (Netzwerkfehler).
+    // Bei Device-Code-Auth warten wir 20 Minuten — der User muss in den Render-Logs
+    // den Code sehen und sich authentifizieren. NICHT bei erfolgreichem Auth löschen.
     spawnTimer = setTimeout(() => {
-      log(`⏰ Timeout — kein Spawn nach ${AUTH_TIMEOUT_MS/1000}s, Cache leeren & neu verbinden`)
+      if (hasSpawned) return
+      log(`⏰ Timeout — kein Spawn nach ${DEVICE_CODE_WAIT_MS / 60000} Minuten`)
+      log(`💡 Falls ein Device-Code angezeigt wurde: Bitte im Browser authentifizieren!`)
       try { client?.disconnect() } catch {}
-      scheduleReconnect(RECONNECT_DELAY_MS, true)
-    }, AUTH_TIMEOUT_MS)
+      // FIX: Cache NICHT löschen wenn noch keine Tokens vorhanden waren (erste Auth).
+      // Cache nur löschen wenn wir schon Tokens hatten (die dann anscheinend ungültig sind).
+      const hasTokenFiles = (() => { try { return readdirSync(cacheDir).length > 0 } catch { return false } })()
+      scheduleReconnect(RECONNECT_DELAY_MS, hasTokenFiles)
+    }, DEVICE_CODE_WAIT_MS)
 
     client.on('spawn', () => {
+      hasSpawned = true
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       log('✅ Im Server!')
       setTimeout(() => sendCommand('/home 1'), 2000)
@@ -197,8 +251,10 @@ function createBot(account) {
     })
 
     client.on('error', (err) => {
-      const isAuthError = err.message?.includes('invalid_grant') || err.message?.includes('expired_token')
+      // FIX: Nur bei echten Auth-Fehlern Cache leeren
+      const isAuthError = err.message?.includes('invalid_grant') || err.message?.includes('expired_token') || err.message?.includes('AADSTS')
       log(`❌ ${err.message}`)
+      if (isAuthError) log(`🗑️ Auth-Fehler erkannt — Cache wird geleert für neuen Login`)
       scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
     })
 
@@ -213,12 +269,21 @@ function createBot(account) {
     if (client) try { client.disconnect() } catch {}
   }
 
-  return { connect, forceConnect, shutdown }
+  return { connect, forceConnect, shutdown, loadTokens: () => loadTokensFromGitHub(account.id, cacheDir) }
 }
 
 console.log('🚀 Multi-Bot startet...')
+console.log(`🔑 GitHub-Token: ${(process.env.GITHUB_TOKEN || process.env.GITHUB_API) ? '✅ gesetzt' : '❌ FEHLT — setze GITHUB_TOKEN oder GITHUB_API auf Render!'}`)
+
 const bots = ACCOUNTS.map(acc => createBot(acc))
 bots.forEach(b => allBots.push(b))
-bots.forEach((bot, i) => setTimeout(() => bot.connect(), i * 3000))
+
+// FIX: Erst Tokens von GitHub laden, dann verbinden
+console.log('📥 Lade Auth-Tokens von GitHub...')
+Promise.all(bots.map(b => b.loadTokens())).then(() => {
+  console.log('🔗 Alle Tokens geladen — verbinde Bots...')
+  bots.forEach((bot, i) => setTimeout(() => bot.connect(), i * 3000))
+})
+
 process.on('SIGINT', () => { bots.forEach(b => b.shutdown()); setTimeout(() => process.exit(0), 2000) })
 process.on('SIGTERM', () => { bots.forEach(b => b.shutdown()); setTimeout(() => process.exit(0), 2000) })
