@@ -31,6 +31,7 @@ const ACCOUNTS = [
 
 let globalStopped = false
 const allBots = []
+const STOP_DURATION_MS = 10 * 60 * 1000
 
 function stripColors(str) {
   return str.replace(/§[0-9a-fk-orA-FK-OR]/g, '')
@@ -48,14 +49,13 @@ function parseChat(raw) {
 
 function stopAllBots() {
   globalStopped = true
-  console.log(`[System] 🛑 Alle Bots werden gestoppt...`)
+  console.log(`[System] 🛑 Alle Bots gestoppt — reconnect in 10 Minuten automatisch`)
   allBots.forEach(b => b.shutdown())
-}
-
-function startAllBots() {
-  globalStopped = false
-  console.log(`[System] 🟢 Alle Bots werden neu gestartet...`)
-  allBots.forEach((bot, i) => setTimeout(() => bot.connect(), i * 3000))
+  setTimeout(() => {
+    globalStopped = false
+    console.log(`[System] 🟢 10 Minuten vorbei — Bots reconnecten...`)
+    allBots.forEach((bot, i) => setTimeout(() => bot.connect(), i * 3000))
+  }, STOP_DURATION_MS)
 }
 
 function createBot(account) {
@@ -146,12 +146,8 @@ function createBot(account) {
           sendCommand(TPA_COMMAND)
         } else if (msgContent.includes('!stop')) {
           lastCommandTime = now
-          log(`🛑 Stop-Befehl empfangen — alle Bots werden getrennt`)
+          log(`🛑 Stop-Befehl empfangen — Bots pausieren 10 Minuten`)
           stopAllBots()
-        } else if (msgContent.includes('!start')) {
-          lastCommandTime = now
-          log(`🟢 Start-Befehl empfangen — alle Bots reconnecten`)
-          startAllBots()
         } else {
           log(`⏭️ Ignoriert: "${msgContent}"`)
         }
