@@ -9,8 +9,6 @@ http.createServer((req, res) => { res.writeHead(200); res.end('Bot läuft!') })
   .listen(PORT, () => console.log(`Ping-Server läuft auf Port ${PORT}`))
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-
-// FIX: Unterstützt sowohl GITHUB_TOKEN als auch GITHUB_API (Render-kompatibel)
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_API
 const GITHUB_REPO = 'manfrankfurt15-lgtm/Afk-bot'
 
@@ -21,13 +19,9 @@ const TPA_COMMAND = `/tpa ${TRIGGER_PLAYER}`
 const RECONNECT_DELAY_MS = 15000
 const RECONNECT_DELAY_SESSION_MS = 180000
 const COMMAND_COOLDOWN_MS = 5000
+const DEVICE_CODE_WAIT_MS = 20 * 60 * 1000
 
-// FIX: Kein Auth-Timeout mehr der den Cache löscht.
-// Stattdessen: nur bei echten Auth-Fehlern (invalid_grant etc.) Cache leeren.
-// Device-Code-Flow braucht Zeit — wir warten geduldig.
-const DEVICE_CODE_WAIT_MS = 20 * 60 * 1000  // 20 Minuten warten auf Device-Code-Auth
-
-const ACCOUNTS = [
+const ALL_ACCOUNTS = [
   { id: 'account1', username: 'Bot1' },
   { id: 'account2', username: 'Bot2' },
   { id: 'account3', username: 'Bot3' },
@@ -35,6 +29,20 @@ const ACCOUNTS = [
   { id: 'account5', username: 'Bot5' },
   { id: 'account6', username: 'Bot6' },
 ]
+
+// BOT_SET=1 → Bots 1-3, BOT_SET=2 → Bots 4-6, kein Wert → alle 6
+const BOT_SET = process.env.BOT_SET
+let ACCOUNTS
+if (BOT_SET === '1') {
+  ACCOUNTS = ALL_ACCOUNTS.slice(0, 3)
+  console.log('🎯 BOT_SET=1 — lädt Accounts 1-3')
+} else if (BOT_SET === '2') {
+  ACCOUNTS = ALL_ACCOUNTS.slice(3, 6)
+  console.log('🎯 BOT_SET=2 — lädt Accounts 4-6')
+} else {
+  ACCOUNTS = ALL_ACCOUNTS
+  console.log('🎯 Kein BOT_SET — alle 6 Accounts')
+}
 
 let globalStopped = false
 const allBots = []
@@ -51,7 +59,6 @@ function parseChat(raw) {
   return { sender: clean.slice(0, colonIdx).trim(), content: clean.slice(colonIdx + 2).trim() }
 }
 
-// FIX: Tokens von GitHub laden BEVOR der Bot verbindet
 async function loadTokensFromGitHub(accountId, cacheDir) {
   if (!GITHUB_TOKEN) {
     console.log(`[${accountId}] ⚠️ Kein GITHUB_TOKEN/GITHUB_API gesetzt — kein Token-Download`)
@@ -112,7 +119,7 @@ async function saveTokensToGitHub(accountId, cacheDir) {
         body: JSON.stringify(body)
       })
     }
-    console.log(`[${accountId}] 💾 Tokens in GitHub gespeichert — bleibt dauerhaft eingeloggt!`)
+    console.log(`[${accountId}] 💾 Tokens in GitHub gespeichert`)
   } catch (err) {
     console.log(`[${accountId}] ⚠️ GitHub-Speicher fehlgeschlagen: ${err.message}`)
   }
@@ -120,7 +127,7 @@ async function saveTokensToGitHub(accountId, cacheDir) {
 
 function stopAllBots() {
   globalStopped = true
-  console.log(`[System] 🛑 Alle Bots gestoppt — reconnect in 10 Minuten automatisch`)
+  console.log(`[System] 🛑 Alle Bots gestoppt — reconnect in 10 Minuten`)
   allBots.forEach(b => b.shutdown())
   setTimeout(() => {
     globalStopped = false
@@ -196,16 +203,11 @@ function createBot(account) {
       return
     }
 
-    // FIX: Langer Timeout nur für den Fall, dass gar keine Antwort kommt (Netzwerkfehler).
-    // Bei Device-Code-Auth warten wir 20 Minuten — der User muss in den Render-Logs
-    // den Code sehen und sich authentifizieren. NICHT bei erfolgreichem Auth löschen.
     spawnTimer = setTimeout(() => {
       if (hasSpawned) return
       log(`⏰ Timeout — kein Spawn nach ${DEVICE_CODE_WAIT_MS / 60000} Minuten`)
-      log(`💡 Falls ein Device-Code angezeigt wurde: Bitte im Browser authentifizieren!`)
+      log(`💡 Falls ein Device-Code angezeigt wurde: Im Browser authentifizieren!`)
       try { client?.disconnect() } catch {}
-      // FIX: Cache NICHT löschen wenn noch keine Tokens vorhanden waren (erste Auth).
-      // Cache nur löschen wenn wir schon Tokens hatten (die dann anscheinend ungültig sind).
       const hasTokenFiles = (() => { try { return readdirSync(cacheDir).length > 0 } catch { return false } })()
       scheduleReconnect(RECONNECT_DELAY_MS, hasTokenFiles)
     }, DEVICE_CODE_WAIT_MS)
@@ -251,10 +253,9 @@ function createBot(account) {
     })
 
     client.on('error', (err) => {
-      // FIX: Nur bei echten Auth-Fehlern Cache leeren
       const isAuthError = err.message?.includes('invalid_grant') || err.message?.includes('expired_token') || err.message?.includes('AADSTS')
       log(`❌ ${err.message}`)
-      if (isAuthError) log(`🗑️ Auth-Fehler erkannt — Cache wird geleert für neuen Login`)
+      if (isAuthError) log(`🗑️ Auth-Fehler — Cache wird geleert`)
       scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
     })
 
@@ -273,12 +274,11 @@ function createBot(account) {
 }
 
 console.log('🚀 Multi-Bot startet...')
-console.log(`🔑 GitHub-Token: ${(process.env.GITHUB_TOKEN || process.env.GITHUB_API) ? '✅ gesetzt' : '❌ FEHLT — setze GITHUB_TOKEN oder GITHUB_API auf Render!'}`)
+console.log(`🔑 GitHub-Token: ${GITHUB_TOKEN ? '✅ gesetzt' : '❌ FEHLT — setze GITHUB_TOKEN auf Render!'}`)
 
 const bots = ACCOUNTS.map(acc => createBot(acc))
 bots.forEach(b => allBots.push(b))
 
-// FIX: Erst Tokens von GitHub laden, dann verbinden
 console.log('📥 Lade Auth-Tokens von GitHub...')
 Promise.all(bots.map(b => b.loadTokens())).then(() => {
   console.log('🔗 Alle Tokens geladen — verbinde Bots...')
