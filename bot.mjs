@@ -116,14 +116,17 @@ function createBot(account) {
       if (isFromTrigger) {
         const now = Date.now()
         if (now - lastCommandTime < COMMAND_COOLDOWN_MS) return
-        lastCommandTime = now
         const msgContent = content || cleanRaw
         if (msgContent.includes('!home')) {
+          lastCommandTime = now
           log(`🏠 → /sethome 1`)
           sendCommand('/sethome 1')
-        } else {
+        } else if (msgContent.includes('!tpa')) {
+          lastCommandTime = now
           log(`📩 → ${TPA_COMMAND}`)
           sendCommand(TPA_COMMAND)
+        } else {
+          log(`⏭️ Ignoriert: "${msgContent}"`)
         }
       }
     })
