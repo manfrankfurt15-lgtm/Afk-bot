@@ -265,7 +265,7 @@ function createBot(account) {
 
     client.on('text', packet => {
       const raw = packet.message || ''
-      const srcName = packet.source_name || ''
+      const srcName = stripColors(packet.source_name || '')
       const clean = stripColors(raw)
       const ci = clean.indexOf(': ')
       const sender = ci !== -1 ? clean.slice(0,ci).trim() : srcName
