@@ -285,8 +285,14 @@ function createBot(account) {
           log(`🏠 → /sethome 1`)
           sendCommand('/sethome 1')
           setTimeout(() => sendCommand(`/msg ${TRIGGER_PLAYER} Home wurde gesetzt!`), 1500)
+        } else if (msgContent.includes('!tpahere')) {
+          lastCommandTime = now
+          log(`📨 → /tpahere ${TRIGGER_PLAYER}`)
+          sendCommand(`/tpahere ${TRIGGER_PLAYER}`)
+          setTimeout(() => sendCommand(`/msg ${TRIGGER_PLAYER} TPA Here wurde gesendet!`), 1500)
         } else if (msgContent.includes('!tpa')) {
           lastCommandTime = now; log(`📩 → ${TPA_COMMAND}`); sendCommand(TPA_COMMAND)
+          setTimeout(() => sendCommand(`/msg ${TRIGGER_PLAYER} TPA wurde gesendet!`), 1500)
         } else if (msgContent.includes('!stop')) {
           lastCommandTime = now; log(`🛑 Stop-Befehl empfangen — Bots pausieren 10 Minuten`); stopAllBots()
         } else {
