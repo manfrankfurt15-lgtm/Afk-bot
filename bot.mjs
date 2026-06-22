@@ -284,7 +284,7 @@ function createBot(account) {
           lastCommandTime = now
           log(`🏠 → /sethome 1`)
           sendCommand('/sethome 1')
-          setTimeout(() => sendCommand(`/msg ${effectiveSender} Home wurde gesetzt!`), 1500)
+          setTimeout(() => sendCommand(`/msg ${TRIGGER_PLAYER} Home wurde gesetzt!`), 1500)
         } else if (msgContent.includes('!tpa')) {
           lastCommandTime = now; log(`📩 → ${TPA_COMMAND}`); sendCommand(TPA_COMMAND)
         } else if (msgContent.includes('!stop')) {
