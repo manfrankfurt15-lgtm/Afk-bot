@@ -278,8 +278,8 @@ function createBot(account) {
       // 1. Immer: OWNER (!Pranav123237)
       // 2. Zugewiesener Spieler (wenn aktive Subscription)
       const assignedPlayer = getAssignedPlayer(account.id)
-      const isOwner = sender === OWNER || (isWhisper && clean.includes(OWNER))
-      const isAssigned = assignedPlayer && (sender === assignedPlayer || (isWhisper && clean.includes(assignedPlayer)))
+      const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
+      const isAssigned = assignedPlayer && (sender === assignedPlayer || sender.endsWith(assignedPlayer) || (isWhisper && clean.includes(assignedPlayer)))
 
       if (!isOwner && !isAssigned) return
 
