@@ -256,27 +256,15 @@ function createBot(account) {
       setTimeout(() => sendCommand('/home 1'), 2000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
 
-      // Anti-AFK: alle 30 Sek leicht drehen
+      // Anti-AFK: alle 4 Minuten Arm schwingen (sicher, kein Kick)
       if (antiAfkInterval) clearInterval(antiAfkInterval)
       antiAfkInterval = setInterval(() => {
         if (!hasSpawned || !client) return
         try {
-          lastYaw = (lastYaw + 45) % 360
-          client.write('move_player', {
-            runtime_entity_id: entityRuntimeId,
-            position: lastPos,
-            pitch: 0,
-            yaw: lastYaw,
-            head_yaw: lastYaw,
-            mode: 0,
-            on_ground: true,
-            riding_runtime_entity_id: BigInt(0),
-            tick: BigInt(0),
-            delta: { x: 0, y: 0, z: 0 }
-          })
+          client.write('animate', { action_id: 1, runtime_entity_id: entityRuntimeId })
         } catch {}
-      }, 30000)
-      log('🔄 Anti-AFK aktiv (dreht alle 30s)')
+      }, 4 * 60 * 1000)
+      log('🔄 Anti-AFK aktiv (schwingt alle 4min)')
     })
 
     client.on('text', (packet) => {
