@@ -1,373 +1,310 @@
 import bedrock from 'bedrock-protocol'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { mkdirSync, rmSync, readdirSync, readFileSync, writeFileSync, existsSync } from 'fs'
+import { mkdirSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import http from 'http'
 
 const PORT = process.env.PORT || 3000
 const __dirname = dirname(fileURLToPath(import.meta.url))
-
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_API
-const GITHUB_REPO = 'manfrankfurt15-lgtm/Afk-bot'
-const SERVER_HOST = 'blockbande.de'
-const SERVER_PORT = 19132
-const RECONNECT_DELAY_MS = 15000
-const RECONNECT_DELAY_SESSION_MS = 180000
-const DEVICE_CODE_WAIT_MS = 20 * 60 * 1000
+const GITHUB_REPO  = 'manfrankfurt15-lgtm/Afk-bot'
+const SERVER_HOST  = 'blockbande.de'
+const SERVER_PORT  = 19132
+const OWNER        = process.env.OWNER_PLAYER || '!Pranav123237'
+const RECONNECT_MS = 15000
+const SESSION_MS   = 180000
+const TIMEOUT_MS   = 20 * 60 * 1000
 
-// Zahlungs-Tiers: Betrag in Spielgeld → Sekunden (0 = lifetime)
-const PAYMENT_TIERS = [
-  { amount: 1250000, seconds: 0,         label: 'Lifetime' },
-  { amount: 150000,  seconds: 28*24*3600, label: '28 Tage'  },
-  { amount: 45000,   seconds: 7*24*3600,  label: '1 Woche'  },
-  { amount: 1,       seconds: 1,          label: '1 Sekunde (Test)' },
+// Alle möglichen Haupt-Bots (account1-6)
+const MAIN_BOTS = ['account1','account2','account3','account4','account5','account6']
+
+// Tiers: min. Betrag → Sekunden (0 = lifetime)
+const TIERS = [
+  { min: 1250000, seconds: 0 },
+  { min: 150000,  seconds: 28*24*3600 },
+  { min: 45000,   seconds:  7*24*3600 },
+  { min: 1,       seconds: 1 },
 ]
 
 function calcSeconds(amount) {
-  for (const tier of PAYMENT_TIERS) {
-    if (amount >= tier.amount) {
-      // Proportional: mehrfaches zahlen stapelt sich
-      const factor = Math.floor(amount / tier.amount)
-      if (tier.seconds === 0) return 0 // lifetime
-      return factor * tier.seconds
+  for (const t of TIERS) {
+    if (amount >= t.min) {
+      if (t.seconds === 0) return 0
+      const factor = Math.floor(amount / t.min)
+      return factor * t.seconds
     }
   }
   return 0
 }
 
-let subscriptions = {} // { "PlayerName": { expiresAt: timestamp_ms | null (lifetime) } }
-let assignments = {}   // { "account3": "PlayerName" } — wird später gesetzt
+// ── GitHub helpers ────────────────────────────────────────────
+let subsSha = null
+let subs = {} // { "Player": { assignedBot, expiresAt, lifetime } }
 
-// ── GitHub: subscriptions.json laden ──────────────────────────
-async function loadSubscriptions() {
+async function loadSubs() {
   if (!GITHUB_TOKEN) return
   try {
     const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/subscriptions.json`, {
-      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
     })
-    if (!r.ok) { console.log('[PayBot] ℹ️ Noch keine subscriptions.json — starte leer'); return }
+    if (!r.ok) { console.log('[PayBot] ℹ️ Noch keine subscriptions.json'); return }
     const j = await r.json()
-    const data = JSON.parse(Buffer.from(j.content, 'base64').toString('utf8'))
-    subscriptions = data.subscriptions || {}
-    assignments   = data.assignments   || {}
-    console.log(`[PayBot] 📂 subscriptions.json geladen — ${Object.keys(subscriptions).length} Spieler`)
-  } catch (err) {
-    console.log(`[PayBot] ⚠️ Laden fehlgeschlagen: ${err.message}`)
-  }
+    subsSha = j.sha
+    subs = JSON.parse(Buffer.from(j.content, 'base64').toString('utf8'))
+    console.log(`[PayBot] 📂 Subscriptions geladen — ${Object.keys(subs).length} Einträge`)
+  } catch (e) { console.log('[PayBot] ⚠️ Laden:', e.message) }
 }
 
-// ── GitHub: subscriptions.json speichern ──────────────────────
-async function saveSubscriptions() {
+async function saveSubs() {
   if (!GITHUB_TOKEN) return
   try {
-    const content = JSON.stringify({ subscriptions, assignments }, null, 2)
-    const base64  = Buffer.from(content).toString('base64')
-    let sha
-    try {
-      const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/subscriptions.json`, {
-        headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
-      })
-      if (r.ok) sha = (await r.json()).sha
-    } catch {}
-    const body = { message: '[auto] Subscriptions Update', content: base64 }
-    if (sha) body.sha = sha
-    await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/subscriptions.json`, {
+    const b64 = Buffer.from(JSON.stringify(subs, null, 2)).toString('base64')
+    const body = { message: '[auto] Subscriptions', content: b64 }
+    if (subsSha) body.sha = subsSha
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/subscriptions.json`, {
       method: 'PUT',
-      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     })
-    console.log('[PayBot] 💾 subscriptions.json gespeichert')
-  } catch (err) {
-    console.log(`[PayBot] ⚠️ Speichern fehlgeschlagen: ${err.message}`)
-  }
+    if (r.ok) { const j = await r.json(); subsSha = j.content?.sha; console.log('[PayBot] 💾 Gespeichert') }
+  } catch (e) { console.log('[PayBot] ⚠️ Speichern:', e.message) }
 }
 
-// ── Zahlung verarbeiten ────────────────────────────────────────
-function processPayment(player, amount, client) {
+// ── Freien Bot finden ─────────────────────────────────────────
+function getFreeBotId() {
+  const now = Date.now()
+  const taken = new Set(
+    Object.values(subs)
+      .filter(s => s.assignedBot && (s.lifetime || (s.expiresAt && s.expiresAt > now)))
+      .map(s => s.assignedBot)
+  )
+  return MAIN_BOTS.find(b => !taken.has(b)) || null
+}
+
+// ── Zahlung verarbeiten ───────────────────────────────────────
+async function processPayment(player, amount, sendMsg) {
   const seconds = calcSeconds(amount)
-  if (seconds === 0 && amount < 1) {
-    console.log(`[PayBot] ⚠️ Betrag $${amount} zu niedrig — ignoriert`)
+  if (seconds === -1 || (seconds === 0 && amount < 1)) {
+    sendMsg(`/msg ${player} ❌ Betrag zu niedrig. Min: $1`)
+    return
+  }
+
+  await loadSubs() // immer frisch laden vor Änderung
+  const now = Date.now()
+  const existing = subs[player]
+
+  if (existing?.lifetime) {
+    sendMsg(`/msg ${player} ⭐ Du hast bereits Lifetime! Bot: ${existing.assignedBot}`)
     return
   }
 
   const isLifetime = seconds === 0
-  const now = Date.now()
-  const current = subscriptions[player]
 
-  let newExpiry
-  if (isLifetime) {
-    newExpiry = null // lifetime = null
-    console.log(`[PayBot] 🌟 ${player} → LIFETIME! ($${amount})`)
-  } else {
-    const base = (current?.expiresAt && current.expiresAt > now) ? current.expiresAt : now
-    newExpiry = base + seconds * 1000
-    const label = PAYMENT_TIERS.find(t => amount >= t.amount)?.label || `${seconds}s`
-    console.log(`[PayBot] ✅ ${player} +${label} ($${amount}) → läuft bis ${new Date(newExpiry).toLocaleString('de-DE')}`)
+  // Bot zuweisen oder bestehenden behalten
+  let botId = existing?.assignedBot || null
+  const botStillActive = botId && (existing.lifetime || (existing.expiresAt && existing.expiresAt > now))
+  if (!botStillActive) botId = getFreeBotId()
+
+  if (!botId) {
+    sendMsg(`/msg ${player} ❌ Alle Bots sind gerade vergeben! Versuch es später.`)
+    return
   }
 
-  subscriptions[player] = { expiresAt: newExpiry, lifetime: isLifetime }
-  saveSubscriptions()
+  let newExpiry = null
+  if (!isLifetime) {
+    const base = botStillActive ? (existing.expiresAt || now) : now
+    newExpiry = base + seconds * 1000
+  }
 
-  // Bestätigung an Zahler senden
-  try {
-    const msg = isLifetime
-      ? `/msg ${player} ✅ Lifetime freigeschaltet! Dein Bot ist dauerhaft aktiv.`
-      : `/msg ${player} ✅ Zeit hinzugefügt! Läuft bis: ${new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
-    client.queue('command_request', {
-      command: msg,
-      origin: { type: 'player', uuid: '00000000-0000-0000-0000-000000000000', request_id: '', player_entity_id: 0n },
-      internal: false, version: '52',
-    })
-  } catch {}
+  subs[player] = { assignedBot: botId, expiresAt: newExpiry, lifetime: isLifetime }
+  await saveSubs()
+
+  const tierLabel = TIERS.find(t => amount >= t.min)
+  const timeStr = isLifetime ? 'LIFETIME ⭐' : `bis ${new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
+  const botNum = botId.replace('account', '')
+
+  console.log(`[PayBot] ✅ ${player} → ${botId} | $${amount} | ${timeStr}`)
+  sendMsg(`/msg ${player} ✅ Bot ${botNum} wurde dir zugewiesen! Gültig ${timeStr}`)
+  sendMsg(`/msg ${player} 💬 Befehle: !tpa !home !tpahere !stop`)
 }
 
-// ── Zahlungsmuster erkennen ────────────────────────────────────
-function detectPayment(raw, processCallback) {
-  const clean = raw.replace(/§[0-9a-fk-orA-FK-OR]/g, '').replace(/,/g, '')
-
-  // Muster 1: "Spieler hat dir $45000 gegeben/gezahlt"
-  let m = clean.match(/^(\S+)\s+hat\s+dir\s+\$?([\d.]+)\s+ge(?:geben|zahlt)/i)
-  if (m) return processCallback(m[1], parseFloat(m[2]))
-
-  // Muster 2: "Du hast $45000 von Spieler erhalten"
-  m = clean.match(/Du\s+hast\s+\$?([\d.]+)\s+von\s+(\S+)\s+erhalten/i)
-  if (m) return processCallback(m[2], parseFloat(m[1]))
-
-  // Muster 3: "Spieler paid you $45000"
-  m = clean.match(/^(\S+)\s+paid\s+you\s+\$?([\d.]+)/i)
-  if (m) return processCallback(m[1], parseFloat(m[2]))
-
-  // Muster 4: "[Economy] Spieler -> $45000"
-  m = clean.match(/(\S+)\s*->\s*\$?([\d.]+)/)
-  if (m) return processCallback(m[1], parseFloat(m[2]))
-
-  // Muster 5: "$45000 von Spieler" / "Payment: $45000 from Spieler"
-  m = clean.match(/\$?([\d.]+)\s+(?:von|from)\s+(\S+)/i)
-  if (m) return processCallback(m[2], parseFloat(m[1]))
-
-  // Muster 6: "Spieler überwiesen $45000"
-  m = clean.match(/^(\S+)\s+(?:überwiesen?|transferiert?)\s+\$?([\d.]+)/i)
-  if (m) return processCallback(m[1], parseFloat(m[2]))
-
+// ── Zahlungsmuster ────────────────────────────────────────────
+function detectPayment(raw, cb) {
+  const s = raw.replace(/§[0-9a-fk-orA-FK-OR]/g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
+  const pats = [
+    /^(\S+)\s+hat\s+dir\s+\$?([\d]+)\s+ge(?:geben|zahlt)/i,
+    /Du\s+hast\s+\$?([\d]+)\s+von\s+(\S+)\s+erhalten/i,
+    /^(\S+)\s+paid\s+you\s+\$?([\d]+)/i,
+    /(\S+)\s*->\s*\$?([\d]+)/,
+    /\$?([\d]+)\s+(?:von|from)\s+(\S+)/i,
+    /^(\S+)\s+(?:überwiesen?|transferiert?)\s+\$?([\d]+)/i,
+  ]
+  for (const p of pats) {
+    const m = s.match(p)
+    if (m) {
+      const [player, amount] = p.source.startsWith('Du') || p.source.includes('\\$.*von') 
+        ? [m[2], parseFloat(m[1])] 
+        : [m[1], parseFloat(m[2])]
+      if (player && !isNaN(amount)) { cb(player, amount); return true }
+    }
+  }
   return false
 }
 
-// ── Status-Server ──────────────────────────────────────────────
+// ── GitHub Tokens ─────────────────────────────────────────────
+async function loadTokens(accountId, cacheDir) {
+  if (!GITHUB_TOKEN) return
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/auth-cache/${accountId}`, {
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+    })
+    if (!r.ok) return
+    const files = await r.json()
+    if (!Array.isArray(files)) return
+    for (const f of files) {
+      const fr = await fetch(f.download_url, { headers: { Authorization: `Bearer ${GITHUB_TOKEN}` } })
+      if (fr.ok) writeFileSync(join(cacheDir, f.name), await fr.text(), 'utf8')
+    }
+    console.log(`[PayBot] ✅ Tokens geladen`)
+  } catch (e) { console.log('[PayBot] ⚠️ Token-Load:', e.message) }
+}
+
+async function saveTokens(accountId, cacheDir) {
+  if (!GITHUB_TOKEN) return
+  try {
+    for (const file of readdirSync(cacheDir)) {
+      const b64 = readFileSync(join(cacheDir, file)).toString('base64')
+      const path = `auth-cache/${accountId}/${file}`
+      let sha
+      try { const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, { headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' } }); if (r.ok) sha = (await r.json()).sha } catch {}
+      const body = { message: `[auto] ${accountId}/${file}`, content: b64 }
+      if (sha) body.sha = sha
+      await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, { method: 'PUT', headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    }
+    console.log('[PayBot] 💾 Tokens gespeichert')
+  } catch (e) { console.log('[PayBot] ⚠️ Token-Save:', e.message) }
+}
+
+// ── Status HTTP ───────────────────────────────────────────────
 http.createServer((req, res) => {
-  if (req.url === '/subscriptions') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    const now = Date.now()
-    const out = Object.entries(subscriptions).map(([player, sub]) => ({
-      player,
-      active: sub.lifetime || (sub.expiresAt !== null && sub.expiresAt > now),
-      lifetime: sub.lifetime || sub.expiresAt === null,
-      expiresAt: sub.expiresAt,
-      remaining: sub.expiresAt ? Math.max(0, Math.floor((sub.expiresAt - now) / 1000)) : null
-    }))
-    res.end(JSON.stringify({ subscriptions: out, assignments }, null, 2))
-  } else {
-    res.writeHead(200, { 'Content-Type': 'text/plain' })
-    res.end('PayBot läuft! Subscriptions: /subscriptions')
-  }
-}).listen(PORT, () => console.log(`[PayBot] Status-Server auf Port ${PORT}`))
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  const now = Date.now()
+  const out = Object.entries(subs).map(([p, s]) => ({
+    player: p, bot: s.assignedBot,
+    active: s.lifetime || (s.expiresAt && s.expiresAt > now),
+    lifetime: !!s.lifetime,
+    expiresAt: s.expiresAt,
+    remainingSecs: s.expiresAt ? Math.max(0, Math.floor((s.expiresAt - now) / 1000)) : null
+  }))
+  res.end(JSON.stringify({ freeBots: MAIN_BOTS.filter(b => !out.find(o => o.bot===b && o.active)), subscriptions: out }, null, 2))
+}).listen(PORT, () => console.log(`[PayBot] Port ${PORT}`))
 
-// ── Bot erstellen ──────────────────────────────────────────────
-function createPayBot() {
-  const account = { id: 'paybot', username: 'PayBot' }
-  const cacheDir = join(__dirname, 'auth-cache', account.id)
+// ── Bot ───────────────────────────────────────────────────────
+function createBot() {
+  const id = 'paybot'
+  const cacheDir = join(__dirname, 'auth-cache', id)
   mkdirSync(cacheDir, { recursive: true })
+  let client, reconnecting = false, spawnTimer = null, hasSpawned = false
+  let entityId = BigInt(0), antiAfk = null
 
-  let client = null
-  let reconnecting = false
-  let spawnTimer = null
-  let hasSpawned = false
-  let entityRuntimeId = BigInt(0)
-  let antiAfkInterval = null
+  const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [PayBot] ${m}`)
+  const strip = s => s.replace(/§[0-9a-fk-orA-FK-OR]/g, '')
 
-  function log(msg) {
-    console.log(`[${new Date().toLocaleTimeString('de-DE')}] [PayBot] ${msg}`)
-  }
-
-  function stripColors(str) { return str.replace(/§[0-9a-fk-orA-FK-OR]/g, '') }
-
-  function clearCache() {
-    try { rmSync(cacheDir, { recursive: true, force: true }); mkdirSync(cacheDir, { recursive: true }) } catch {}
-    log('🗑️ Cache geleert — neuer Login-Code kommt...')
-  }
-
-  function sendCommand(command) {
+  function sendCmd(cmd) {
     try {
-      client.queue('command_request', {
-        command,
-        origin: { type: 'player', uuid: '00000000-0000-0000-0000-000000000000', request_id: '', player_entity_id: 0n },
-        internal: false, version: '52',
-      })
-      log(`➡️ ${command}`)
-    } catch (err) { log(`Fehler: ${err.message}`) }
+      client.queue('command_request', { command: cmd, origin: { type:'player', uuid:'00000000-0000-0000-0000-000000000000', request_id:'', player_entity_id:0n }, internal:false, version:'52' })
+      log(`➡️ ${cmd}`)
+    } catch {}
   }
 
-  function scheduleReconnect(delay = RECONNECT_DELAY_MS, resetCache = false) {
+  function scheduleReconnect(delay = RECONNECT_MS, clearCache = false) {
     if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
     if (reconnecting) return
     reconnecting = true
-    if (resetCache) clearCache()
-    log(`🔄 Reconnect in ${delay / 1000}s...`)
+    if (clearCache) try { rmSync(cacheDir, { recursive:true, force:true }); mkdirSync(cacheDir, { recursive:true }); log('🗑️ Cache geleert') } catch {}
+    log(`🔄 Reconnect in ${delay/1000}s...`)
     setTimeout(() => { reconnecting = false; connect() }, delay)
-  }
-
-  async function loadTokensFromGitHub() {
-    if (!GITHUB_TOKEN) return
-    try {
-      const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/auth-cache/${account.id}`, {
-        headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
-      })
-      if (!r.ok) { log('ℹ️ Noch keine Tokens in GitHub'); return }
-      const files = await r.json()
-      if (!Array.isArray(files) || !files.length) return
-      let loaded = 0
-      for (const file of files) {
-        const fr = await fetch(file.download_url, { headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}` } })
-        if (fr.ok) { writeFileSync(join(cacheDir, file.name), await fr.text(), 'utf8'); loaded++ }
-      }
-      log(`✅ ${loaded} Token(s) von GitHub geladen`)
-    } catch (err) { log(`⚠️ Token-Download: ${err.message}`) }
-  }
-
-  async function saveTokensToGitHub() {
-    if (!GITHUB_TOKEN) return
-    try {
-      const files = readdirSync(cacheDir)
-      for (const file of files) {
-        const content = readFileSync(join(cacheDir, file))
-        const base64 = content.toString('base64')
-        const githubPath = `auth-cache/${account.id}/${file}`
-        let sha
-        try {
-          const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`, {
-            headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
-          })
-          if (r.ok) sha = (await r.json()).sha
-        } catch {}
-        const body = { message: `[auto] Token: ${account.id}/${file}`, content: base64 }
-        if (sha) body.sha = sha
-        await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`, {
-          method: 'PUT',
-          headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        })
-      }
-      log('💾 Tokens in GitHub gespeichert')
-    } catch (err) { log(`⚠️ Token-Speicher: ${err.message}`) }
   }
 
   function connect() {
     if (reconnecting) return
     hasSpawned = false
     log('Verbinde...')
-
     try {
-      client = bedrock.createClient({
-        host: SERVER_HOST, port: SERVER_PORT,
-        username: account.username,
-        offline: false, connectTimeout: 20000, skipPing: false,
-        profilesFolder: cacheDir,
-      })
-    } catch (err) {
-      log(`Fehler: ${err.message}`)
-      scheduleReconnect(RECONNECT_DELAY_MS, true)
-      return
-    }
+      client = bedrock.createClient({ host:SERVER_HOST, port:SERVER_PORT, username:'PayBot', offline:false, connectTimeout:20000, skipPing:false, profilesFolder:cacheDir })
+    } catch (e) { log(`❌ ${e.message}`); scheduleReconnect(RECONNECT_MS, true); return }
 
     spawnTimer = setTimeout(() => {
       if (hasSpawned) return
-      log(`⏰ Kein Spawn nach 20min`)
+      log('⏰ Timeout — kein Spawn nach 20min')
       try { client?.disconnect() } catch {}
-      const hasTokens = (() => { try { return readdirSync(cacheDir).length > 0 } catch { return false } })()
-      scheduleReconnect(RECONNECT_DELAY_MS, hasTokens)
-    }, DEVICE_CODE_WAIT_MS)
+      const hasFiles = (() => { try { return readdirSync(cacheDir).length > 0 } catch { return false } })()
+      scheduleReconnect(RECONNECT_MS, hasFiles)
+    }, TIMEOUT_MS)
 
-    client.on('start_game', (p) => {
-      entityRuntimeId = p.runtime_entity_id ?? BigInt(0)
-    })
+    client.on('start_game', p => { entityId = p.runtime_entity_id ?? BigInt(0) })
 
     client.on('spawn', () => {
       hasSpawned = true
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
-      log('✅ PayBot ist im Server!')
-      setTimeout(() => sendCommand('/home 1'), 2000)
-      setTimeout(() => saveTokensToGitHub(), 5000)
-
-      if (antiAfkInterval) clearInterval(antiAfkInterval)
-      antiAfkInterval = setInterval(() => {
-        if (!hasSpawned || !client) return
-        try { client.write('animate', { action_id: 1, runtime_entity_id: entityRuntimeId }) } catch {}
-      }, 4 * 60 * 1000)
+      log('✅ Im Server!')
+      setTimeout(() => sendCmd('/home 1'), 2000)
+      setTimeout(() => saveTokens(id, cacheDir), 5000)
+      if (antiAfk) clearInterval(antiAfk)
+      antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
     })
 
-    client.on('text', (packet) => {
+    client.on('text', packet => {
       const raw = packet.message || ''
-      const sourceName = packet.source_name || ''
-      const cleanRaw = stripColors(raw)
-      const colonIdx = cleanRaw.indexOf(': ')
-      const sender = colonIdx !== -1 ? cleanRaw.slice(0, colonIdx).trim() : (sourceName || '')
-      const content = colonIdx !== -1 ? cleanRaw.slice(colonIdx + 2).trim() : cleanRaw
-
+      const srcName = packet.source_name || ''
+      const clean = strip(raw)
+      const ci = clean.indexOf(': ')
+      const sender = ci !== -1 ? clean.slice(0, ci).trim() : srcName
+      const content = ci !== -1 ? clean.slice(ci+2).trim() : clean
       log(`[Chat] <${sender}> ${content}`)
 
-      // Zahlung erkennen — alle Muster versuchen
-      const detected = detectPayment(cleanRaw, (player, amount) => {
-        log(`💰 Zahlung erkannt: ${player} → $${amount}`)
-        processPayment(player, amount, client)
+      // Zahlung erkennen
+      const found = detectPayment(clean, (player, amount) => {
+        log(`💰 ${player} zahlt $${amount}`)
+        processPayment(player, amount, sendCmd)
       })
-
-      // Wenn nicht erkannt aber könnte Zahlung sein → loggen für Debugging
-      if (!detected && (cleanRaw.includes('$') || cleanRaw.toLowerCase().includes('zahlt') || cleanRaw.toLowerCase().includes('paid') || cleanRaw.toLowerCase().includes('überwiesen'))) {
-        log(`🔍 Mögliche Zahlung (Muster unbekannt): "${cleanRaw}"`)
+      if (!found && (clean.includes('$') || /zahlt|paid|überwiesen/i.test(clean))) {
+        log(`🔍 Mögliche Zahlung (Muster unbekannt): "${clean}"`)
       }
 
-      // !tpa Befehl — nur vom Owner
-      const isWhisper = cleanRaw.includes('-> Du') || cleanRaw.includes('-> dir')
-      const owner = process.env.OWNER_PLAYER || '!Pranav123237'
-      const isOwner = sender === owner || (isWhisper && cleanRaw.includes(owner))
+      // !tpa nur für Owner
+      const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
+      const isOwner = sender === OWNER || (isWhisper && clean.includes(OWNER))
       if (isOwner && content.includes('!tpa')) {
-        sendCommand(`/tpa ${owner}`)
-        setTimeout(() => sendCommand(`/msg ${owner} TPA gesendet!`), 1500)
+        sendCmd(`/tpa ${OWNER}`)
+        setTimeout(() => sendCmd(`/msg ${OWNER} TPA gesendet! ✅`), 1500)
       }
     })
 
-    client.on('disconnect', (reason) => {
-      const msg = reason?.message || ''
+    client.on('disconnect', r => {
+      const msg = r?.message || ''
+      if (antiAfk) { clearInterval(antiAfk); antiAfk = null }
       const isSession = msg.includes('bereits auf dem Netzwerk') || msg.includes('already logged in')
-      if (antiAfkInterval) { clearInterval(antiAfkInterval); antiAfkInterval = null }
-      log(isSession ? '⏳ Session aktiv — warte 3min...' : `⚠️ Disconnect: ${stripColors(msg)}`)
-      scheduleReconnect(isSession ? RECONNECT_DELAY_SESSION_MS : RECONNECT_DELAY_MS)
+      log(isSession ? '⏳ Session aktiv — warte 3min...' : `⚠️ ${strip(msg)}`)
+      scheduleReconnect(isSession ? SESSION_MS : RECONNECT_MS)
     })
 
-    client.on('error', (err) => {
-      const codeAlreadyUsed = err.message?.includes('device_code') && err.message?.includes('already been used')
-      const isAuthError = !codeAlreadyUsed && (err.message?.includes('invalid_grant') || err.message?.includes('AADSTS'))
-      log(`❌ ${err.message}`)
-      scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
+    client.on('error', e => {
+      const used = e.message?.includes('device_code') && e.message?.includes('already been used')
+      const authErr = !used && (e.message?.includes('invalid_grant') || e.message?.includes('AADSTS'))
+      log(`❌ ${e.message}`)
+      scheduleReconnect(RECONNECT_MS, authErr)
     })
 
-    client.on('close', () => {
-      if (antiAfkInterval) { clearInterval(antiAfkInterval); antiAfkInterval = null }
-      log('Geschlossen.'); scheduleReconnect()
-    })
+    client.on('close', () => { if (antiAfk) { clearInterval(antiAfk); antiAfk = null }; log('Geschlossen.'); scheduleReconnect() })
   }
 
-  return { connect, loadTokens: loadTokensFromGitHub }
+  return { connect, loadTokens: () => loadTokens(id, cacheDir) }
 }
 
-// ── Start ──────────────────────────────────────────────────────
+// ── Start ─────────────────────────────────────────────────────
 console.log('💰 PayBot startet...')
-const bot = createPayBot()
+const bot = createBot()
+setInterval(loadSubs, 5 * 60 * 1000)
 
-loadSubscriptions().then(() => {
-  bot.loadTokens().then(() => {
-    bot.connect()
-  })
-})
-
-// Subscriptions alle 5 Minuten neu laden (für Updates von anderen Services)
-setInterval(loadSubscriptions, 5 * 60 * 1000)
+loadSubs().then(() => bot.loadTokens()).then(() => bot.connect())
