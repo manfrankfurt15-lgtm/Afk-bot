@@ -288,7 +288,7 @@ function createBot() {
 
       // !tpa nur für Owner
       const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
-      const isOwner = sender === OWNER || (isWhisper && clean.includes(OWNER))
+      const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
       if (isOwner && content.includes('!tpa')) {
         sendCmd(`/tpa ${OWNER}`)
         setTimeout(() => sendCmd(`/msg ${OWNER} TPA gesendet! ✅`), 1500)
