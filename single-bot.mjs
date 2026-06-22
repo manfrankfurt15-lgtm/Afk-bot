@@ -319,6 +319,21 @@ function createBot() {
         lastCmd = Date.now()
         log('🛑 Stop vom Owner')
         process.exit(0)
+      } else if (msg2.includes('!status') && isOwner) {
+        lastCmd = Date.now()
+        const now3 = Date.now()
+        const active = Object.entries(subs).filter(([, s]) =>
+          s.assignedBot && (s.lifetime || (s.expiresAt && s.expiresAt > now3))
+        )
+        if (active.length === 0) {
+          sendCmd(`/msg ${OWNER} Keine aktiven Subscriptions.`)
+        } else {
+          sendCmd(`/msg ${OWNER} Aktive Subs: ${active.length}`)
+          active.forEach(([player, s], idx) => {
+            const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
+            setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> ${s.assignedBot} | ${timeStr}`), (idx+1)*600)
+          })
+        }
       } else if (msg2.includes('!info')) {
         lastCmd = Date.now()
         if (assignedPlayer) {
