@@ -107,21 +107,7 @@ async function saveTokensToGitHub(accountId, cacheDir) {
 }
 
 
-// ── Gamertag aus Cache lesen & in GitHub speichern ───────────
-function readGamertag(cacheDir) {
-  try {
-    const files = readdirSync(cacheDir).filter(f => f.endsWith('.json'))
-    for (const file of files) {
-      try {
-        const str = readFileSync(join(cacheDir, file), 'utf8')
-        const m = str.match(/"gtg"\s*:\s*"([^"]+)"/)
-        if (m) return m[1]
-      } catch {}
-    }
-  } catch {}
-  return null
-}
-
+// ── Gamertag in GitHub speichern ────────────────────────────
 async function saveGamertag(accountId, gamertag) {
   if (!GITHUB_TOKEN || !gamertag) return
   try {
@@ -206,9 +192,25 @@ function createBot(account) {
       scheduleReconnect(RECONNECT_MS, hasFiles)
     }, TIMEOUT_MS)
 
+    let uniqueEntityId = BigInt(0)
+    let selfGamertag = null
     client.on('start_game', p => {
       entityId = p.runtime_entity_id ?? BigInt(0)
+      uniqueEntityId = p.unique_entity_id ?? BigInt(0)
       if (p.player_position) lastPos = p.player_position
+    })
+
+    client.on('player_list', packet => {
+      if (selfGamertag) return
+      const records = packet?.records?.records || packet?.records || []
+      for (const r of records) {
+        if (r.entity_unique_id === uniqueEntityId || r.entity_unique_id?.toString() === uniqueEntityId?.toString()) {
+          selfGamertag = r.username
+          log(`🏷️ Gamertag erkannt: ${selfGamertag}`)
+          saveGamertag(account.id, selfGamertag)
+          break
+        }
+      }
     })
 
     client.on('move_player', p => {
@@ -225,10 +227,7 @@ function createBot(account) {
       log('✅ Im Server!')
       setTimeout(() => sendCmd('/home 1'), 2000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
-      setTimeout(() => {
-        const gt = readGamertag(cacheDir)
-        if (gt) { log(`🏷️ Gamertag: ${gt}`); saveGamertag(account.id, gt) }
-      }, 8000)
+
       if (antiAfk) clearInterval(antiAfk)
       antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
       log('🔄 Anti-AFK aktiv')
