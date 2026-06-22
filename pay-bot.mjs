@@ -55,6 +55,19 @@ async function loadSubs() {
   } catch (e) { console.log('[PayBot] ⚠️ Laden:', e.message) }
 }
 
+
+async function loadGamertags() {
+  if (!GITHUB_TOKEN) return {}
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/gamertags.json`, {
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+    })
+    if (!r.ok) return {}
+    const j = await r.json()
+    return JSON.parse(Buffer.from(j.content, 'base64').toString('utf8'))
+  } catch { return {} }
+}
+
 async function saveSubs() {
   if (!GITHUB_TOKEN) return
   try {
@@ -121,10 +134,11 @@ async function processPayment(player, amount, sendMsg) {
 
   const tierLabel = TIERS.find(t => amount >= t.min)
   const timeStr = isLifetime ? 'LIFETIME ⭐' : `bis ${new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
-  const botNum = botId.replace('account', '')
+  const gamertags = await loadGamertags()
+  const botName = gamertags[botId] || `Bot ${botId.replace('account', '')}`
 
-  console.log(`[PayBot] ✅ ${player} → ${botId} | $${amount} | ${timeStr}`)
-  sendMsg(`/msg ${player} ✅ Bot ${botNum} wurde dir zugewiesen! Gültig ${timeStr}`)
+  console.log(`[PayBot] ✅ ${player} → ${botId} (${botName}) | ${amount} | ${timeStr}`)
+  sendMsg(`/msg ${player} ✅ ${botName} wurde dir zugewiesen! Gültig ${timeStr}`)
   sendMsg(`/msg ${player} 💬 Befehle: !tpa !home !tpahere !stop`)
 }
 
