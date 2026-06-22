@@ -298,25 +298,25 @@ function createBot(account) {
       if (msg.includes('!home')) {
         lastCmd = now
         sendCmd('/sethome 1')
-        setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home wurde gesetzt! ✅`), 1500)
+        setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home wurde gesetzt!`), 1500)
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         sendCmd(`/tpahere ${targetName}`)
-        setTimeout(() => sendCmd(`/msg ${targetName} TPA Here gesendet! ✅`), 1500)
+        setTimeout(() => sendCmd(`/msg ${targetName} TPA Here gesendet!`), 1500)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         sendCmd(`/tpa ${targetName}`)
-        setTimeout(() => sendCmd(`/msg ${targetName} TPA gesendet! ✅`), 1500)
+        setTimeout(() => sendCmd(`/msg ${targetName} TPA gesendet!`), 1500)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
         lastCmd = now
         if (assignedPlayer && sender !== OWNER) {
           const entry = subs[assignedPlayer]
-          const timeStr = entry?.lifetime ? 'Lifetime ⭐' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
-          sendCmd(`/msg ${sender} 🤖 Dein Bot: ${account.id} | Gültig: ${timeStr}`)
+          const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
+          sendCmd(`/msg ${sender} Dein Bot: ${account.id} | Gültig: ${timeStr}`)
         }
       }
     })
