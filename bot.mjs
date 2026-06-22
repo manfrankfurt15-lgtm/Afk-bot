@@ -106,6 +106,44 @@ async function saveTokensToGitHub(accountId, cacheDir) {
   } catch (e) { console.log(`[${accountId}] ⚠️ Token-Save: ${e.message}`) }
 }
 
+
+// ── Gamertag aus Cache lesen & in GitHub speichern ───────────
+function readGamertag(cacheDir) {
+  try {
+    const files = readdirSync(cacheDir).filter(f => f.endsWith('.json'))
+    for (const file of files) {
+      try {
+        const str = readFileSync(join(cacheDir, file), 'utf8')
+        const m = str.match(/"gtg"\s*:\s*"([^"]+)"/)
+        if (m) return m[1]
+      } catch {}
+    }
+  } catch {}
+  return null
+}
+
+async function saveGamertag(accountId, gamertag) {
+  if (!GITHUB_TOKEN || !gamertag) return
+  try {
+    let current = {}, sha
+    try {
+      const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/gamertags.json`, {
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+      })
+      if (r.ok) { const j = await r.json(); sha = j.sha; current = JSON.parse(Buffer.from(j.content, 'base64').toString('utf8')) }
+    } catch {}
+    if (current[accountId] === gamertag) return
+    current[accountId] = gamertag
+    const body = { message: `[auto] Gamertag: ${accountId}=${gamertag}`, content: Buffer.from(JSON.stringify(current, null, 2)).toString('base64') }
+    if (sha) body.sha = sha
+    await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/gamertags.json`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    console.log(`[${accountId}] 🏷️ Gamertag gespeichert: ${gamertag}`)
+  } catch (e) { console.log(`[${accountId}] ⚠️ Gamertag-Save: ${e.message}`) }
+}
+
 // ── Bot erstellen ─────────────────────────────────────────────
 let globalStopped = false
 const allBots = []
@@ -187,6 +225,10 @@ function createBot(account) {
       log('✅ Im Server!')
       setTimeout(() => sendCmd('/home 1'), 2000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
+      setTimeout(() => {
+        const gt = readGamertag(cacheDir)
+        if (gt) { log(`🏷️ Gamertag: ${gt}`); saveGamertag(account.id, gt) }
+      }, 8000)
       if (antiAfk) clearInterval(antiAfk)
       antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
       log('🔄 Anti-AFK aktiv')
