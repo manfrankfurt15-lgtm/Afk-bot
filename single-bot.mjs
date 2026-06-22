@@ -21,10 +21,12 @@ const TIMEOUT_MS   = 20 * 60 * 1000
 const MAIN_BOTS = ['account1','account2','account3','account4','account5','account6']
 
 const TIERS = [
-  { min: 1250000, seconds: 0 },
-  { min: 150000,  seconds: 28*24*3600 },
-  { min: 45000,   seconds:  7*24*3600 },
-  { min: 1,       seconds: 1 },
+  { min: 1250000, seconds: 0 },           // Lifetime
+  { min: 150000,  seconds: 28*24*3600 },  // 28 Tage
+  { min: 45000,   seconds:  7*24*3600 },  // 7 Tage
+  { min: 15000,   seconds:  3*24*3600 },  // 3 Tage
+  { min: 5000,    seconds:  1*24*3600 },  // 1 Tag
+  { min: 1,       seconds:  1*24*3600 },  // Test: $1 = 1 Tag
 ]
 
 function calcSeconds(amount) {
@@ -108,7 +110,7 @@ function getFreeBotId() {
 async function processPayment(player, amount, sendCmd) {
   const seconds = calcSeconds(amount)
   if (seconds === 0 && amount < 1) {
-    sendCmd(`/msg ${player} ❌ Betrag zu niedrig. Min: $1`)
+    sendCmd(`/msg ${player} Betrag zu niedrig. Min: $1`)
     return
   }
 
@@ -117,7 +119,7 @@ async function processPayment(player, amount, sendCmd) {
   const existing = subs[player]
 
   if (existing?.lifetime) {
-    sendCmd(`/msg ${player} ⭐ Du hast bereits Lifetime! Bot: ${existing.assignedBot}`)
+    sendCmd(`/msg ${player} Du hast bereits Lifetime! Bot: ${existing.assignedBot}`)
     return
   }
 
@@ -127,7 +129,7 @@ async function processPayment(player, amount, sendCmd) {
   if (!botStillActive) botId = getFreeBotId()
 
   if (!botId) {
-    sendCmd(`/msg ${player} ❌ Alle Bots vergeben! Versuch später.`)
+    sendCmd(`/msg ${player} Alle Bots vergeben! Versuch spaeter.`)
     return
   }
 
@@ -142,11 +144,11 @@ async function processPayment(player, amount, sendCmd) {
 
   const gamertags = await loadGamertags()
   const botName = gamertags[botId] || `Bot ${botId.replace('account', '')}`
-  const timeStr = isLifetime ? 'LIFETIME ⭐' : `bis ${new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
+  const timeStr = isLifetime ? 'LIFETIME' : `bis ${new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
 
   console.log(`[Bot] ✅ ${player} → ${botId} (${botName}) | $${amount} | ${timeStr}`)
-  sendCmd(`/msg ${player} ✅ Dir wurde der Bot ${botName} hinzugefügt! Zeit: ${timeStr}`)
-  sendCmd(`/msg ${player} 💬 Befehle: !tpa`)
+  sendCmd(`/msg ${player} Dir wurde der Bot ${botName} hinzugefuegt! Zeit: ${timeStr}`)
+  sendCmd(`/msg ${player} Befehl: !tpa`)
 }
 
 // ── Zahlungsmuster ────────────────────────────────────────────
@@ -302,7 +304,7 @@ function createBot() {
         lastCmd = Date.now()
         const target = extractName(sender)
         sendCmd(`/tpa ${target}`)
-        setTimeout(() => sendCmd(`/msg ${target} TPA gesendet! ✅`), 1500)
+        setTimeout(() => sendCmd(`/msg ${target} TPA gesendet!`), 1500)
       }
     })
 
