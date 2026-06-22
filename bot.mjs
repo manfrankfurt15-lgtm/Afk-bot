@@ -130,24 +130,27 @@ function readGamertag(cacheDir) {
 
 async function saveGamertag(accountId, gamertag) {
   if (!GITHUB_TOKEN || !gamertag) return
-  try {
-    let current = {}, sha
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
+      // Immer frische SHA holen um Konflikte zu vermeiden
+      let current = {}, sha
       const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/gamertags.json`, {
         headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
       })
       if (r.ok) { const j = await r.json(); sha = j.sha; current = JSON.parse(Buffer.from(j.content, 'base64').toString('utf8')) }
-    } catch {}
-    if (current[accountId] === gamertag) return
-    current[accountId] = gamertag
-    const body = { message: `[auto] Gamertag: ${accountId}=${gamertag}`, content: Buffer.from(JSON.stringify(current, null, 2)).toString('base64') }
-    if (sha) body.sha = sha
-    await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/gamertags.json`, {
-      method: 'PUT', headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
-    console.log(`[${accountId}] 🏷️ Gamertag gespeichert: ${gamertag}`)
-  } catch (e) { console.log(`[${accountId}] ⚠️ Gamertag-Save: ${e.message}`) }
+      if (current[accountId] === gamertag) return // schon gespeichert
+      current[accountId] = gamertag
+      const body = { message: `[auto] Gamertag: ${accountId}=${gamertag}`, content: Buffer.from(JSON.stringify(current, null, 2)).toString('base64') }
+      if (sha) body.sha = sha
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/gamertags.json`, {
+        method: 'PUT', headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      if (res.ok) { console.log(`[${accountId}] 🏷️ Gamertag gespeichert: ${gamertag}`); return }
+      // SHA-Konflikt → kurz warten und nochmal
+      await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000))
+    } catch (e) { console.log(`[${accountId}] ⚠️ Gamertag-Save (retry ${attempt}): ${e.message}`) }
+  }
 }
 
 // ── Bot erstellen ─────────────────────────────────────────────
@@ -247,11 +250,13 @@ function createBot(account) {
       log('✅ Im Server!')
       setTimeout(() => sendCmd('/home 1'), 2000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
+      // Gestaffelt speichern: account1=8s, account2=12s, account3=16s, etc.
+      const accountNum = parseInt(account.id.replace('account','')) || 1
       setTimeout(() => {
         const gt = readGamertag(cacheDir)
         if (gt) { log(`🏷️ Gamertag: ${gt}`); saveGamertag(account.id, gt) }
         else log('⚠️ Gamertag nicht lesbar (noch kein bed-cache?)')
-      }, 8000)
+      }, 8000 + (accountNum - 1) * 4000)
 
       if (antiAfk) clearInterval(antiAfk)
       antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
