@@ -107,7 +107,27 @@ async function saveTokensToGitHub(accountId, cacheDir) {
 }
 
 
-// ── Gamertag in GitHub speichern ────────────────────────────
+// ── Gamertag lesen & speichern ──────────────────────────────
+
+function readGamertag(cacheDir) {
+  try {
+    const files = readdirSync(cacheDir).filter(f => f.includes('bed-cache'))
+    for (const file of files) {
+      const data = JSON.parse(readFileSync(join(cacheDir, file), 'utf8'))
+      const chain = data?.mca?.chain || []
+      for (const jwt of chain) {
+        const parts = jwt.split('.')
+        if (parts.length < 2) continue
+        try {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+          if (payload?.extraData?.displayName) return payload.extraData.displayName
+        } catch {}
+      }
+    }
+  } catch {}
+  return null
+}
+
 async function saveGamertag(accountId, gamertag) {
   if (!GITHUB_TOKEN || !gamertag) return
   try {
@@ -203,16 +223,8 @@ function createBot(account) {
     client.on('player_list', packet => {
       if (selfGamertag) return
       const records = packet?.records?.records || packet?.records || []
-      if (!hasSpawned && records.length > 0) {
-        // Log first packet to debug structure
-        const first = records[0]
-        log(`🔍 player_list keys: ${Object.keys(first||{}).join(', ')}`)
-        log(`🔍 uniqueEntityId: ${uniqueEntityId} | record entity: ${first?.entity_unique_id} | username: ${first?.username}`)
-      }
       for (const r of records) {
-        const rid = typeof r.entity_unique_id === 'bigint' ? r.entity_unique_id : BigInt(r.entity_unique_id || 0)
-        const uid = typeof uniqueEntityId === 'bigint' ? uniqueEntityId : BigInt(uniqueEntityId || 0)
-        if (rid === uid && r.username) {
+        if (r.entity_unique_id === uniqueEntityId || r.entity_unique_id?.toString() === uniqueEntityId?.toString()) {
           selfGamertag = r.username
           log(`🏷️ Gamertag erkannt: ${selfGamertag}`)
           saveGamertag(account.id, selfGamertag)
@@ -235,6 +247,11 @@ function createBot(account) {
       log('✅ Im Server!')
       setTimeout(() => sendCmd('/home 1'), 2000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
+      setTimeout(() => {
+        const gt = readGamertag(cacheDir)
+        if (gt) { log(`🏷️ Gamertag: ${gt}`); saveGamertag(account.id, gt) }
+        else log('⚠️ Gamertag nicht lesbar (noch kein bed-cache?)')
+      }, 8000)
 
       if (antiAfk) clearInterval(antiAfk)
       antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
