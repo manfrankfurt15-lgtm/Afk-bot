@@ -138,7 +138,7 @@ async function processPayment(player, amount, sendMsg) {
   const botName = gamertags[botId] || `Bot ${botId.replace('account', '')}`
 
   console.log(`[PayBot] ✅ ${player} → ${botId} (${botName}) | ${amount} | ${timeStr}`)
-  sendMsg(`/msg ${player} ✅ ${botName} wurde dir zugewiesen! Gültig ${timeStr}`)
+  sendMsg(`/msg ${player} ✅ Dir wurde der Bot ${botName} hinzugefügt! Zeit: ${timeStr}`)
   sendMsg(`/msg ${player} 💬 Befehle: !tpa !home !tpahere !stop`)
 }
 
@@ -231,7 +231,11 @@ function createBot() {
   const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [PayBot] ${m}`)
   const strip = s => s.replace(/§./g, '')
 function extractName(raw) {
-  if (raw.includes('->')) return raw.replace(/^.*?]s*/, '').replace(/s*->.*$/, '').trim()
+  if (raw.includes('->')) {
+    // '[Nachricht] !Pranav123237 -> Du' → '!Pranav123237'
+    const m = raw.match(/]s*(.+?)s*->/)
+    return m ? m[1].trim() : raw.trim()
+  }
   if (raw.includes('| ')) return raw.split('| ').pop().trim()
   return raw.trim()
 }
