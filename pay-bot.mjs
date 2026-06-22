@@ -201,6 +201,10 @@ async function saveTokens(accountId, cacheDir) {
 
 // ── Status HTTP ───────────────────────────────────────────────
 http.createServer((req, res) => {
+  if (req.url === '/ping' || req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    return res.end(JSON.stringify({ ok: true, service: 'pay-bot', uptime: Math.floor(process.uptime()) }))
+  }
   res.writeHead(200, { 'Content-Type': 'application/json' })
   const now = Date.now()
   const out = Object.entries(subs).map(([p, s]) => ({
