@@ -70,7 +70,7 @@ http.createServer((req, res) => {
 }).listen(PORT, () => console.log(`Status-Server Port ${PORT}`))
 
 // ── Hilfsfunktionen ───────────────────────────────────────────
-const stripColors = s => s.replace(/§[0-9a-fk-orA-FK-OR]/g, '')
+const stripColors = s => s.replace(/§./g, '')
 
 async function loadTokensFromGitHub(accountId, cacheDir) {
   if (!GITHUB_TOKEN) return
