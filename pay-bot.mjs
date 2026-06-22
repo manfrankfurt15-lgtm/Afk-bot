@@ -226,6 +226,11 @@ function createBot() {
 
   const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [PayBot] ${m}`)
   const strip = s => s.replace(/§./g, '')
+function extractName(raw) {
+  if (raw.includes('->')) return raw.replace(/^.*?]s*/, '').replace(/s*->.*$/, '').trim()
+  if (raw.includes('| ')) return raw.split('| ').pop().trim()
+  return raw.trim()
+}
 
   function sendCmd(cmd) {
     try {
