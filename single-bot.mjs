@@ -300,11 +300,32 @@ function createBot() {
       if (!isOwner && !isAssigned) return
       if (Date.now() - lastCmd < COOLDOWN) return
 
-      if (content.includes('!tpa')) {
+      const msg2 = content || clean
+      if (msg2.includes('!home')) {
+        lastCmd = Date.now()
+        sendCmd('/sethome 1')
+        setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home wurde gesetzt!`), 1500)
+      } else if (msg2.includes('!tpahere')) {
+        lastCmd = Date.now()
+        const target = extractName(sender)
+        sendCmd(`/tpahere ${target}`)
+        setTimeout(() => sendCmd(`/msg ${target} TPA Here gesendet!`), 1500)
+      } else if (msg2.includes('!tpa')) {
         lastCmd = Date.now()
         const target = extractName(sender)
         sendCmd(`/tpa ${target}`)
         setTimeout(() => sendCmd(`/msg ${target} TPA gesendet!`), 1500)
+      } else if (msg2.includes('!stop') && isOwner) {
+        lastCmd = Date.now()
+        log('🛑 Stop vom Owner')
+        process.exit(0)
+      } else if (msg2.includes('!info')) {
+        lastCmd = Date.now()
+        if (assignedPlayer) {
+          const entry = subs[assignedPlayer]
+          const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
+          sendCmd(`/msg ${extractName(sender)} Dein Bot: ${BOT_USERNAME} | Gueltig: ${timeStr}`)
+        }
       }
     })
 
