@@ -160,6 +160,10 @@ function createBot(account) {
   let lastCommandTime = 0
   let spawnTimer = null
   let hasSpawned = false
+  let antiAfkInterval = null
+  let entityRuntimeId = BigInt(0)
+  let lastPos = { x: 0, y: 64, z: 0 }
+  let lastYaw = 0
 
   function log(msg) {
     console.log(`[${new Date().toLocaleTimeString('de-DE')}] [${account.id}] ${msg}`)
@@ -228,6 +232,22 @@ function createBot(account) {
       scheduleReconnect(RECONNECT_DELAY_MS, hasTokenFiles)
     }, DEVICE_CODE_WAIT_MS)
 
+    client.on('start_game', (packet) => {
+      try {
+        entityRuntimeId = packet.runtime_entity_id ?? BigInt(0)
+        if (packet.player_position) lastPos = packet.player_position
+      } catch {}
+    })
+
+    client.on('move_player', (packet) => {
+      try {
+        if (packet.runtime_entity_id === entityRuntimeId) {
+          if (packet.position) lastPos = packet.position
+          if (packet.yaw != null) lastYaw = packet.yaw
+        }
+      } catch {}
+    })
+
     client.on('spawn', () => {
       hasSpawned = true
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
@@ -235,6 +255,28 @@ function createBot(account) {
       log('✅ Im Server!')
       setTimeout(() => sendCommand('/home 1'), 2000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
+
+      // Anti-AFK: alle 30 Sek leicht drehen
+      if (antiAfkInterval) clearInterval(antiAfkInterval)
+      antiAfkInterval = setInterval(() => {
+        if (!hasSpawned || !client) return
+        try {
+          lastYaw = (lastYaw + 45) % 360
+          client.write('move_player', {
+            runtime_entity_id: entityRuntimeId,
+            position: lastPos,
+            pitch: 0,
+            yaw: lastYaw,
+            head_yaw: lastYaw,
+            mode: 0,
+            on_ground: true,
+            riding_runtime_entity_id: BigInt(0),
+            tick: BigInt(0),
+            delta: { x: 0, y: 0, z: 0 }
+          })
+        } catch {}
+      }, 30000)
+      log('🔄 Anti-AFK aktiv (dreht alle 30s)')
     })
 
     client.on('text', (packet) => {
@@ -266,6 +308,7 @@ function createBot(account) {
       const msg = reason?.message || ''
       const isSession = msg.includes('bereits auf dem Netzwerk') || msg.includes('already logged in')
       botStatus[account.id] = { online: false, since: new Date().toISOString() }
+      if (antiAfkInterval) { clearInterval(antiAfkInterval); antiAfkInterval = null }
       log(isSession ? `⏳ Session aktiv — warte 3min...` : `⚠️ Disconnect: ${stripColors(msg)}`)
       scheduleReconnect(isSession ? RECONNECT_DELAY_SESSION_MS : RECONNECT_DELAY_MS)
     })
@@ -281,7 +324,11 @@ function createBot(account) {
       scheduleReconnect(RECONNECT_DELAY_MS, isAuthError)
     })
 
-    client.on('close', () => { log('Geschlossen.'); scheduleReconnect() })
+    client.on('close', () => {
+      if (antiAfkInterval) { clearInterval(antiAfkInterval); antiAfkInterval = null }
+      log('Geschlossen.')
+      scheduleReconnect()
+    })
   }
 
   function forceConnect() { reconnecting = false; connect() }
