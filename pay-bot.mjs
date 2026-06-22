@@ -144,7 +144,7 @@ async function processPayment(player, amount, sendMsg) {
 
 // ── Zahlungsmuster ────────────────────────────────────────────
 function detectPayment(raw, cb) {
-  const s = raw.replace(/§[0-9a-fk-orA-FK-OR]/g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
+  const s = raw.replace(/§./g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
   const pats = [
     /^(\S+)\s+hat\s+dir\s+\$?([\d]+)\s+ge(?:geben|zahlt)/i,
     /Du\s+hast\s+\$?([\d]+)\s+von\s+(\S+)\s+erhalten/i,
@@ -222,7 +222,7 @@ function createBot() {
   let entityId = BigInt(0), antiAfk = null
 
   const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [PayBot] ${m}`)
-  const strip = s => s.replace(/§[0-9a-fk-orA-FK-OR]/g, '')
+  const strip = s => s.replace(/§./g, '')
 
   function sendCmd(cmd) {
     try {
