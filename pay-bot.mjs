@@ -270,7 +270,7 @@ function createBot() {
 
     client.on('text', packet => {
       const raw = packet.message || ''
-      const srcName = packet.source_name || ''
+      const srcName = strip(packet.source_name || '')
       const clean = strip(raw)
       const ci = clean.indexOf(': ')
       const sender = ci !== -1 ? clean.slice(0, ci).trim() : srcName
