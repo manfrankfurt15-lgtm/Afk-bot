@@ -213,6 +213,9 @@ http.createServer((req, res) => {
   res.end(JSON.stringify({ freeBots: MAIN_BOTS.filter(b => !out.find(o => o.bot===b && o.active)), subscriptions: out }, null, 2))
 }).listen(PORT, () => console.log(`[PayBot] Port ${PORT}`))
 
+// ── Payout ───────────────────────────────────────────────────────
+let awaitingPayout = false
+
 // ── Bot ───────────────────────────────────────────────────────
 function createBot() {
   const id = 'paybot'
@@ -286,12 +289,34 @@ function createBot() {
         log(`🔍 Mögliche Zahlung (Muster unbekannt): "${clean}"`)
       }
 
-      // !tpa nur für Owner
+      // !tpa / !payout nur für Owner
       const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
       const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
+
+      // Balance-Antwort auswerten (nach /geld)
+      if (awaitingPayout) {
+        const balMatch = clean.match(/(?:Guthaben|Kontostand|Konto|Saldo|Balance|Geld)[^d]*(d[d.,]+)/i)
+        if (balMatch) {
+          const amount = parseInt(balMatch[1].replace(/[.,]/g, ''))
+          awaitingPayout = false
+          if (amount > 0) {
+            log(`💸 Payout: ${amount} → ${OWNER}`)
+            sendCmd(`/pay ${OWNER} ${amount}`)
+            setTimeout(() => sendCmd(`/msg ${OWNER} ✅ Ausgezahlt: ${amount}`), 1500)
+          } else {
+            sendCmd(`/msg ${OWNER} ❌ Kein Guthaben vorhanden`)
+          }
+        }
+      }
+
       if (isOwner && content.includes('!tpa')) {
         sendCmd(`/tpa ${OWNER}`)
         setTimeout(() => sendCmd(`/msg ${OWNER} TPA gesendet! ✅`), 1500)
+      }
+      if (isOwner && content.includes('!payout')) {
+        log('💸 Payout angefragt — checke Guthaben...')
+        awaitingPayout = true
+        sendCmd('/geld')
       }
     })
 
