@@ -71,6 +71,14 @@ http.createServer((req, res) => {
 
 // ── Hilfsfunktionen ───────────────────────────────────────────
 const stripColors = s => s.replace(/§./g, '')
+// Extrahiert den echten Spielernamen aus Whisper/Rank-Prefix
+// '[Nachricht] !Pranav123237 -> Du' → '!Pranav123237'
+// '[CLAN] Rank | PlayerName'        → 'PlayerName'
+function extractName(raw) {
+  if (raw.includes('->')) return raw.replace(/^.*?]s*/, '').replace(/s*->.*$/, '').trim()
+  if (raw.includes('| ')) return raw.split('| ').pop().trim()
+  return raw.trim()
+}
 
 async function loadTokensFromGitHub(accountId, cacheDir) {
   if (!GITHUB_TOKEN) return
@@ -288,14 +296,19 @@ function createBot(account) {
       const msg = content || clean
 
       if (msg.includes('!home')) {
-        lastCmd = now; sendCmd('/sethome 1')
-        setTimeout(() => sendCmd(`/msg ${sender} Home wurde gesetzt! ✅`), 1500)
+        lastCmd = now
+        sendCmd('/sethome 1')
+        setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home wurde gesetzt! ✅`), 1500)
       } else if (msg.includes('!tpahere')) {
-        lastCmd = now; sendCmd(`/tpahere ${sender}`)
-        setTimeout(() => sendCmd(`/msg ${sender} TPA Here gesendet! ✅`), 1500)
+        lastCmd = now
+        const targetName = extractName(sender)
+        sendCmd(`/tpahere ${targetName}`)
+        setTimeout(() => sendCmd(`/msg ${targetName} TPA Here gesendet! ✅`), 1500)
       } else if (msg.includes('!tpa')) {
-        lastCmd = now; sendCmd(`/tpa ${sender}`)
-        setTimeout(() => sendCmd(`/msg ${sender} TPA gesendet! ✅`), 1500)
+        lastCmd = now
+        const targetName = extractName(sender)
+        sendCmd(`/tpa ${targetName}`)
+        setTimeout(() => sendCmd(`/msg ${targetName} TPA gesendet! ✅`), 1500)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
