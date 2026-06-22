@@ -281,7 +281,10 @@ function createBot(account) {
         if (now - lastCommandTime < COMMAND_COOLDOWN_MS) return
         const msgContent = content || cleanRaw
         if (msgContent.includes('!home')) {
-          lastCommandTime = now; log(`🏠 → /sethome 1`); sendCommand('/sethome 1')
+          lastCommandTime = now
+          log(`🏠 → /sethome 1`)
+          sendCommand('/sethome 1')
+          setTimeout(() => sendCommand(`/msg ${effectiveSender} Home wurde gesetzt!`), 1500)
         } else if (msgContent.includes('!tpa')) {
           lastCommandTime = now; log(`📩 → ${TPA_COMMAND}`); sendCommand(TPA_COMMAND)
         } else if (msgContent.includes('!stop')) {
