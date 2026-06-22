@@ -203,8 +203,16 @@ function createBot(account) {
     client.on('player_list', packet => {
       if (selfGamertag) return
       const records = packet?.records?.records || packet?.records || []
+      if (!hasSpawned && records.length > 0) {
+        // Log first packet to debug structure
+        const first = records[0]
+        log(`🔍 player_list keys: ${Object.keys(first||{}).join(', ')}`)
+        log(`🔍 uniqueEntityId: ${uniqueEntityId} | record entity: ${first?.entity_unique_id} | username: ${first?.username}`)
+      }
       for (const r of records) {
-        if (r.entity_unique_id === uniqueEntityId || r.entity_unique_id?.toString() === uniqueEntityId?.toString()) {
+        const rid = typeof r.entity_unique_id === 'bigint' ? r.entity_unique_id : BigInt(r.entity_unique_id || 0)
+        const uid = typeof uniqueEntityId === 'bigint' ? uniqueEntityId : BigInt(uniqueEntityId || 0)
+        if (rid === uid && r.username) {
           selfGamertag = r.username
           log(`🏷️ Gamertag erkannt: ${selfGamertag}`)
           saveGamertag(account.id, selfGamertag)
