@@ -85,6 +85,19 @@ function extractName(raw) {
   return raw.trim()
 }
 
+// Prüft ob sender (kann Rank-Prefix haben) dem gespeicherten Spielernamen entspricht
+function senderMatches(sender, playerName, isWhisper, clean) {
+  if (!playerName) return false
+  const low = sender.toLowerCase()
+  const pLow = playerName.toLowerCase()
+  return (
+    low === pLow ||
+    low.endsWith(pLow) ||
+    low.includes('| ' + pLow) ||
+    (isWhisper && clean.toLowerCase().includes(pLow))
+  )
+}
+
 async function loadTokensFromGitHub(accountId, cacheDir) {
   if (!GITHUB_TOKEN) return
   try {
@@ -292,12 +305,12 @@ function createBot(account) {
       // 2. Zugewiesener Spieler (wenn aktive Subscription)
       const assignedPlayer = getAssignedPlayer(account.id)
       const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
-      const isAssigned = assignedPlayer && (sender === assignedPlayer || sender.endsWith(assignedPlayer) || (isWhisper && clean.includes(assignedPlayer)))
+      const isAssigned = senderMatches(sender, assignedPlayer, isWhisper, clean)
 
       if (!isOwner && !isAssigned) {
         loadSubs().then(() => {
           const ap2 = getAssignedPlayer(account.id)
-          const ia2 = ap2 && (sender === ap2 || sender.endsWith(ap2) || (isWhisper && clean.includes(ap2)))
+          const ia2 = senderMatches(sender, ap2, isWhisper, clean)
           if (!ia2) return
           const now2 = Date.now()
           if (now2 - lastCmd < COOLDOWN) return
@@ -313,8 +326,8 @@ function createBot(account) {
             setTimeout(() => sendCmd(`/msg ${t2} TPA gesendet! ✅`), 2000)
           } else if (msg2.includes('!home')) {
             lastCmd = now2
-            sendCmd('/sethome 1')
-            setTimeout(() => sendCmd(`/msg ${t2} Home gesetzt! ✅`), 1500)
+            sendCmd('/home 1')
+            setTimeout(() => sendCmd(`/msg ${t2} Bot ist auf dem Weg zu Home! ✅`), 1500)
           } else if (msg2.includes('!info')) {
             lastCmd = now2
             const entry2 = subs[ap2]
@@ -332,8 +345,15 @@ function createBot(account) {
 
       if (msg.includes('!home')) {
         lastCmd = now
-        sendCmd('/sethome 1')
-        setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home gesetzt! ✅`), 1500)
+        if (isOwner) {
+          // Owner setzt den Home-Punkt des Bots
+          sendCmd('/sethome 1')
+          setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home-Punkt gesetzt! ✅`), 1500)
+        } else {
+          // Subscriber: Bot geht zu seinem Home
+          sendCmd('/home 1')
+          setTimeout(() => sendCmd(`/msg ${extractName(sender)} Bot ist auf dem Weg zu Home! ✅`), 1500)
+        }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
