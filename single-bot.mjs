@@ -22,11 +22,8 @@ const MAIN_BOTS = ['account1','account2','account3','account4','account5','accou
 
 const TIERS = [
   { min: 1250000, seconds: 0 },           // Lifetime
-  { min: 150000,  seconds: 28*24*3600 },  // 28 Tage
-  { min: 45000,   seconds:  7*24*3600 },  // 7 Tage
-  { min: 15000,   seconds:  3*24*3600 },  // 3 Tage
-  { min: 5000,    seconds:  1*24*3600 },  // 1 Tag
-  { min: 1,       seconds:  1*24*3600 },  // Test: $1 = 1 Tag
+  { min: 150000,  seconds: 30*24*3600 },  // 1 Monat
+  { min: 45000,   seconds:  7*24*3600 },  // 1 Woche
 ]
 
 function calcSeconds(amount) {
