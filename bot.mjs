@@ -305,6 +305,13 @@ function createBot(account) {
           if (msg2.includes('!tpa')) { lastCmd = now2; const t = extractName(sender); sendCmd(`/tpa ${t}`) }
           else if (msg2.includes('!tpahere')) { lastCmd = now2; const t = extractName(sender); sendCmd(`/tpahere ${t}`) }
           else if (msg2.includes('!home')) { lastCmd = now2; sendCmd('/sethome 1') }
+          else if (msg2.includes('!info')) {
+            lastCmd = now2
+            const entry2 = subs[ap2]
+            const timeStr2 = entry2?.lifetime ? 'Lifetime' : entry2?.expiresAt ? `bis ${new Date(entry2.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
+            const gt2 = readGamertag(cacheDir)
+            sendCmd(`/msg ${extractName(sender)} Dein Bot: ${gt2 ? '!'+gt2 : account.id} | Gueltig: ${timeStr2}`)
+          }
         })
         return
       }
@@ -331,10 +338,12 @@ function createBot(account) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
         lastCmd = now
-        if (assignedPlayer && sender !== OWNER) {
+        if (assignedPlayer) {
           const entry = subs[assignedPlayer]
           const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
-          sendCmd(`/msg ${sender} Dein Bot: ${account.id} | Gültig: ${timeStr}`)
+          const gt = readGamertag(cacheDir)
+          const displayName = gt ? `!${gt}` : account.id
+          sendCmd(`/msg ${extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
         }
       }
     })
