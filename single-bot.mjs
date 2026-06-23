@@ -313,34 +313,10 @@ function createBot() {
         }
       }
 
-      // Subscriber-Check: nur !tpa / !tpahere erlaubt
-      const nowCk = Date.now()
-      const senderSub = subs[sender]
-      const isSub = senderSub?.assignedBot && (senderSub.lifetime || (senderSub.expiresAt && senderSub.expiresAt > nowCk))
-
-      const msg2 = content || clean
-
-      if ((isOwner || isSub) && msg2.includes('!tpahere') && !msg2.includes('!tpahere') === false) {
-        if (nowCk - lastCmd >= COOLDOWN) {
-          lastCmd = nowCk
-          const target = extractName(sender)
-          // Kleiner Delay: stellt sicher dass der Client stabil ist
-          setTimeout(() => sendCmd(`/tpahere ${target}`), 400)
-          setTimeout(() => sendCmd(`/msg ${target} TPA-Here gesendet! ✅`), 2000)
-        }
-      } else if ((isOwner || isSub) && msg2.includes('!tpa')) {
-        if (nowCk - lastCmd >= COOLDOWN) {
-          lastCmd = nowCk
-          const target = extractName(sender)
-          // Kleiner Delay: stellt sicher dass der Client stabil ist
-          setTimeout(() => sendCmd(`/tpa ${target}`), 400)
-          setTimeout(() => sendCmd(`/msg ${target} TPA gesendet! ✅`), 2000)
-        }
-      }
-
       if (!isOwner) return
       if (Date.now() - lastCmd < COOLDOWN) return
 
+      const msg2 = content || clean
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
         sendCmd('/sethome 1')
@@ -416,6 +392,35 @@ function createBot() {
               await saveSubs()
               sendCmd(`/msg ${OWNER} ✅ ${remPlayer} entfernt.`)
               log(`[RemoveBot] ${remPlayer} entfernt`)
+            }
+          })()
+        }
+      } else if (msg2.includes('!extend') && isOwner) {
+        lastCmd = Date.now()
+        const eParts = (content || clean).trim().split(/\s+/)
+        const ePlayer = eParts[1]
+        const eDays   = parseInt(eParts[2])
+        if (!ePlayer || isNaN(eDays) || eDays < 1) {
+          sendCmd(`/msg ${OWNER} Nutzung: !extend SpielerName Tage`)
+        } else {
+          ;(async () => {
+            await loadSubs()
+            const eNow = Date.now()
+            const eEx  = subs[ePlayer]
+            if (!eEx?.assignedBot) {
+              sendCmd(`/msg ${OWNER} ${ePlayer} hat keine aktive Subscription.`)
+            } else if (eEx.lifetime) {
+              sendCmd(`/msg ${OWNER} ${ePlayer} hat bereits Lifetime — kein Extend noetig.`)
+            } else {
+              const base   = (eEx.expiresAt && eEx.expiresAt > eNow) ? eEx.expiresAt : eNow
+              const newExp = base + eDays * 24 * 3600 * 1000
+              subs[ePlayer] = { ...eEx, expiresAt: newExp }
+              await saveSubs()
+              const gts  = await loadGamertags()
+              const bName = gts[eEx.assignedBot] || eEx.assignedBot
+              const until = new Date(newExp).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+              sendCmd(`/msg ${OWNER} ✅ ${ePlayer} -> !${bName} | +${eDays} Tage (neu: bis ${until})`)
+              log(`[Extend] ${ePlayer} +${eDays} Tage -> bis ${until}`)
             }
           })()
         }
