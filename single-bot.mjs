@@ -222,7 +222,7 @@ function createBot() {
   const cacheDir = join(__dirname, 'auth-cache', BOT_ACCOUNT)
   mkdirSync(cacheDir, { recursive: true })
   let client, reconnecting = false, spawnTimer = null, hasSpawned = false
-  let entityId = BigInt(0), antiAfk = null, lastCmd = 0
+  let entityId = BigInt(0), antiAfk = null, lastCmd = 0, awaitingPayout = false
   const COOLDOWN = 5000
 
   const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [Bot] ${m}`)
@@ -292,6 +292,24 @@ function createBot() {
       const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
       const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
 
+
+      // /money Antwort auswerten (nach !payout)
+      if (awaitingPayout) {
+        const balMatch = clean.match(/Kontostand:\s*\$?([\d.]+)/i)
+        if (balMatch) {
+          const amount = parseInt(balMatch[1].replace(/\./g, ''))
+          awaitingPayout = false
+          if (amount > 0) {
+            log(`💸 Payout: ${amount} → ${OWNER}`)
+            sendCmd(`/pay ${OWNER} ${amount}`)
+            setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
+            setTimeout(() => sendCmd(`/msg ${OWNER} ✅ Ausgezahlt: ${amount}`), 5000)
+          } else {
+            sendCmd(`/msg ${OWNER} ❌ Kein Guthaben vorhanden`)
+          }
+        }
+      }
+
       if (!isOwner) return
       if (Date.now() - lastCmd < COOLDOWN) return
 
@@ -315,6 +333,11 @@ function createBot() {
         log('🛑 Stop vom Owner')
         process.exit(0)
       } else if (msg2.includes('!status') && isOwner) {
+      } else if (msg2.includes('!payout')) {
+        lastCmd = Date.now()
+        log('💸 Payout angefragt — checke Guthaben...')
+        awaitingPayout = true
+        sendCmd('/money')
         lastCmd = Date.now()
         const now3 = Date.now()
         const active = Object.entries(subs).filter(([, s]) =>
