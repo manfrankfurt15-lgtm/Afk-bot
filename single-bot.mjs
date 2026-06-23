@@ -261,7 +261,7 @@ function createBot() {
       hasSpawned = true
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       log('✅ Im Server!')
-      setTimeout(() => sendCmd('/home 1'), 2000)
+      setTimeout(() => sendCmd('/home 1'), 5000)
       setTimeout(() => saveTokens(cacheDir), 5000)
       if (antiAfk) clearInterval(antiAfk)
       antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
@@ -369,6 +369,6 @@ console.log(`🤖 Single-Bot startet... (${BOT_ACCOUNT} / ${BOT_USERNAME})`)
 console.log(`🔑 GitHub: ${GITHUB_TOKEN ? '✅' : '❌ FEHLT'}`)
 
 const bot = createBot()
-setInterval(loadSubs, 5 * 60 * 1000)
+setInterval(loadSubs, 30 * 1000)
 
 loadSubs().then(() => bot.loadTokens()).then(() => bot.connect())
