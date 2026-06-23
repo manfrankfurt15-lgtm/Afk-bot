@@ -40,7 +40,7 @@ function calcSeconds(amount) {
   return 0
 }
 
-const stripColors = s => s.replace(/§./g, '')
+const stripColors = s => s.replace(/[§§]./g, '').replace(/§/g, '')
 
 function extractName(raw) {
   if (raw.includes('->')) {
@@ -141,6 +141,12 @@ async function processPayment(player, amount, sendCmd) {
 
   subs[player] = { assignedBot: botId, expiresAt: newExpiry, lifetime: isLifetime }
   await saveSubs()
+  // Sofort beide AFK-Bot-Services benachrichtigen → Kunden bekommt sofort Zugang
+  const BOT_URLS = [
+    'https://pranav-afk-bot.onrender.com/reload',
+    'https://pranav-afk-bot-2.onrender.com/reload'
+  ]
+  BOT_URLS.forEach(url => fetch(url).catch(() => {}))
 
   const gamertags = await loadGamertags()
   const botName = gamertags[botId] || `Bot ${botId.replace('account', '')}`
@@ -153,7 +159,7 @@ async function processPayment(player, amount, sendCmd) {
 
 // ── Zahlungsmuster ────────────────────────────────────────────
 function detectPayment(raw, cb) {
-  const s = raw.replace(/§./g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
+  const s = raw.replace(/[§§]./g, '').replace(/§/g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
   const pats = [
     /^(\S+)\s+hat\s+dir\s+\$?([\d]+)\s+ge(?:geben|zahlt)/i,
     /Du\s+hast\s+\$?([\d]+)\s+von\s+(\S+)\s+erhalten/i,
