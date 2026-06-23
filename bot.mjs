@@ -75,7 +75,7 @@ http.createServer((req, res) => {
 }).listen(PORT, () => console.log(`Status-Server Port ${PORT}`))
 
 // ── Hilfsfunktionen ───────────────────────────────────────────
-const stripColors = s => s.replace(/[\u00a7\u00A7§].?/g, '').replace(/[\u00a7\u00A7§]/g, '')
+const stripColors = s => s.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u00A7§]/g, '')
 // Extrahiert den echten Spielernamen aus Whisper/Rank-Prefix
 // '[Nachricht] !Pranav123237 -> Du' → '!Pranav123237'
 // '[CLAN] Rank | PlayerName'        → 'PlayerName'
