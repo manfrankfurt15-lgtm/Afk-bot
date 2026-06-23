@@ -13,5 +13,10 @@
     "assignedBot": "account3",
     "expiresAt": 1782835890332,
     "lifetime": false
+  },
+  "EzzEnte": {
+    "assignedBot": "account4",
+    "expiresAt": 1782842326784,
+    "lifetime": false
   }
 }
