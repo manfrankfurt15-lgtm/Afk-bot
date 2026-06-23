@@ -64,13 +64,18 @@ http.createServer((req, res) => {
       uptime: Math.floor(process.uptime()),
       bots: botStatus
     }))
+  } else if (req.url === '/reload') {
+    loadSubs().then(() => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, subs: Object.keys(subs).length }))
+    })
   } else {
     res.writeHead(200); res.end('Bot läuft! Status: /ping')
   }
 }).listen(PORT, () => console.log(`Status-Server Port ${PORT}`))
 
 // ── Hilfsfunktionen ───────────────────────────────────────────
-const stripColors = s => s.replace(/§./g, '')
+const stripColors = s => s.replace(/[\u00a7\u00A7§].?/g, '').replace(/[\u00a7\u00A7§]/g, '')
 // Extrahiert den echten Spielernamen aus Whisper/Rank-Prefix
 // '[Nachricht] !Pranav123237 -> Du' → '!Pranav123237'
 // '[CLAN] Rank | PlayerName'        → 'PlayerName'
