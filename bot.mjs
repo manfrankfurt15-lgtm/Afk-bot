@@ -256,7 +256,7 @@ function createBot(account) {
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       botStatus[account.id] = { online: true, since: new Date().toISOString() }
       log('✅ Im Server!')
-      setTimeout(() => sendCmd('/home 1'), 2000)
+      setTimeout(() => sendCmd('/home 1'), 5000)
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
       // Gestaffelt speichern: account1=8s, account2=12s, account3=16s, etc.
       const accountNum = parseInt(account.id.replace('account','')) || 1
@@ -289,7 +289,20 @@ function createBot(account) {
       const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
       const isAssigned = assignedPlayer && (sender === assignedPlayer || sender.endsWith(assignedPlayer) || (isWhisper && clean.includes(assignedPlayer)))
 
-      if (!isOwner && !isAssigned) return
+      if (!isOwner && !isAssigned) {
+        loadSubs().then(() => {
+          const ap2 = getAssignedPlayer(account.id)
+          const ia2 = ap2 && (sender === ap2 || sender.endsWith(ap2) || (isWhisper && clean.includes(ap2)))
+          if (!ia2) return
+          const now2 = Date.now()
+          if (now2 - lastCmd < COOLDOWN) return
+          const msg2 = content || clean
+          if (msg2.includes('!tpa')) { lastCmd = now2; const t = extractName(sender); sendCmd(`/tpa ${t}`) }
+          else if (msg2.includes('!tpahere')) { lastCmd = now2; const t = extractName(sender); sendCmd(`/tpahere ${t}`) }
+          else if (msg2.includes('!home')) { lastCmd = now2; sendCmd('/sethome 1') }
+        })
+        return
+      }
 
       const now = Date.now()
       if (now - lastCmd < COOLDOWN) return
@@ -361,7 +374,7 @@ const bots = ACCOUNTS.map(a => createBot(a))
 bots.forEach(b => allBots.push(b))
 
 // Subscriptions alle 5min neu laden
-setInterval(loadSubs, 5 * 60 * 1000)
+setInterval(loadSubs, 30 * 1000)
 
 console.log('📥 Lade Tokens + Subscriptions...')
 Promise.all([loadSubs(), ...bots.map(b => b.loadTokens())]).then(() => {
