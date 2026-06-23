@@ -291,23 +291,15 @@ function createBot() {
         log(`🔍 Unbekanntes Muster: "${clean}"`)
       }
 
-      // Nur !tpa — für Owner und zugewiesene Spieler
+      // Nur Owner (!Pranav123237) darf Befehle benutzen
       const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
       const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
-      const now2 = Date.now()
-      const assignedPlayer = (() => {
-        const entry = Object.entries(subs).find(([, s]) =>
-          s.assignedBot === BOT_ACCOUNT && (s.lifetime || (s.expiresAt && s.expiresAt > now2))
-        )
-        return entry ? entry[0] : null
-      })()
-      const isAssigned = assignedPlayer && (sender === assignedPlayer || sender.endsWith(assignedPlayer) || (isWhisper && clean.includes(assignedPlayer)))
 
-      if (!isOwner && !isAssigned) return
+      if (!isOwner) return
       if (Date.now() - lastCmd < COOLDOWN) return
 
       const msg2 = content || clean
-      if (msg2.includes('!home') && isOwner) {
+      if (msg2.includes('!home')) {
         lastCmd = Date.now()
         sendCmd('/sethome 1')
         setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home wurde gesetzt!`), 1500)
@@ -340,13 +332,6 @@ function createBot() {
             const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
             setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
           })
-        }
-      } else if (msg2.includes('!info')) {
-        lastCmd = Date.now()
-        if (assignedPlayer) {
-          const entry = subs[assignedPlayer]
-          const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
-          sendCmd(`/msg ${extractName(sender)} Dein Bot: ${BOT_USERNAME} | Gueltig: ${timeStr}`)
         }
       }
     })
