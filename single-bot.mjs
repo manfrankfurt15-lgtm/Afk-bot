@@ -346,7 +346,7 @@ function createBot() {
             sendCmd(`/msg ${OWNER} Keine aktiven Subscriptions.`)
           } else {
             sendCmd(`/msg ${OWNER} Aktive Subs: ${active.length}`)
-            active.forEach(([player, s], idx => {
+            active.forEach(([player, s], idx) => {
               const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
               setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
             })
