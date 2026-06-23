@@ -3,5 +3,10 @@
     "assignedBot": "account1",
     "expiresAt": 1782277669755,
     "lifetime": false
+  },
+  "GugiGame": {
+    "assignedBot": "account2",
+    "expiresAt": 1782822862715,
+    "lifetime": false
   }
 }
