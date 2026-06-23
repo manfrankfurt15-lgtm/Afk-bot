@@ -323,16 +323,17 @@ function createBot() {
         const active = Object.entries(subs).filter(([, s]) =>
           s.assignedBot && (s.lifetime || (s.expiresAt && s.expiresAt > now3))
         )
-        const gts = await loadGamertags()
-        if (active.length === 0) {
-          sendCmd(`/msg ${OWNER} Keine aktiven Subscriptions.`)
-        } else {
-          sendCmd(`/msg ${OWNER} Aktive Subs: ${active.length}`)
-          active.forEach(([player, s], idx) => {
-            const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
-            setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
-          })
-        }
+        loadGamertags().then(gts => {
+          if (active.length === 0) {
+            sendCmd(`/msg ${OWNER} Keine aktiven Subscriptions.`)
+          } else {
+            sendCmd(`/msg ${OWNER} Aktive Subs: ${active.length}`)
+            active.forEach(([player, s], idx) => {
+              const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
+              setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
+            })
+          }
+        })
       }
     })
 
