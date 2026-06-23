@@ -40,7 +40,7 @@ function calcSeconds(amount) {
   return 0
 }
 
-const stripColors = s => s.replace(/[§§]./g, '').replace(/§/g, '')
+const stripColors = s => s.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u00A7§]/g, '')
 
 function extractName(raw) {
   if (raw.includes('->')) {
@@ -159,7 +159,7 @@ async function processPayment(player, amount, sendCmd) {
 
 // ── Zahlungsmuster ────────────────────────────────────────────
 function detectPayment(raw, cb) {
-  const s = raw.replace(/[§§]./g, '').replace(/§/g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
+  const s = raw.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u00A7§]/g, '').replace(/[,.]/g, m => m === ',' ? '' : '')
   const pats = [
     /^(\S+)\s+hat\s+dir\s+\$?([\d]+)\s+ge(?:geben|zahlt)/i,
     /Du\s+hast\s+\$?([\d]+)\s+von\s+(\S+)\s+erhalten/i,
