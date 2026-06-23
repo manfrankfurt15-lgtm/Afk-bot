@@ -315,7 +315,8 @@ function extractName(raw) {
           if (amount > 0) {
             log(`💸 Payout: ${amount} → ${OWNER}`)
             sendCmd(`/pay ${OWNER} ${amount}`)
-            setTimeout(() => sendCmd(`/msg ${OWNER} ✅ Ausgezahlt: ${amount}`), 1500)
+            setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
+            setTimeout(() => sendCmd(`/msg ${OWNER} ✅ Ausgezahlt: ${amount}`), 5000)
           } else {
             sendCmd(`/msg ${OWNER} ❌ Kein Guthaben vorhanden`)
           }
