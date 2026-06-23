@@ -313,24 +313,38 @@ function createBot() {
         }
       }
 
+      // Subscriber-Check: nur !tpa / !tpahere erlaubt
+      const nowCk = Date.now()
+      const senderSub = subs[sender]
+      const isSub = senderSub?.assignedBot && (senderSub.lifetime || (senderSub.expiresAt && senderSub.expiresAt > nowCk))
+
+      const msg2 = content || clean
+
+      if ((isOwner || isSub) && msg2.includes('!tpahere') && !msg2.includes('!tpahere') === false) {
+        if (nowCk - lastCmd >= COOLDOWN) {
+          lastCmd = nowCk
+          const target = extractName(sender)
+          // Kleiner Delay: stellt sicher dass der Client stabil ist
+          setTimeout(() => sendCmd(`/tpahere ${target}`), 400)
+          setTimeout(() => sendCmd(`/msg ${target} TPA-Here gesendet! ✅`), 2000)
+        }
+      } else if ((isOwner || isSub) && msg2.includes('!tpa')) {
+        if (nowCk - lastCmd >= COOLDOWN) {
+          lastCmd = nowCk
+          const target = extractName(sender)
+          // Kleiner Delay: stellt sicher dass der Client stabil ist
+          setTimeout(() => sendCmd(`/tpa ${target}`), 400)
+          setTimeout(() => sendCmd(`/msg ${target} TPA gesendet! ✅`), 2000)
+        }
+      }
+
       if (!isOwner) return
       if (Date.now() - lastCmd < COOLDOWN) return
 
-      const msg2 = content || clean
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
         sendCmd('/sethome 1')
         setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home wurde gesetzt!`), 1500)
-      } else if (msg2.includes('!tpahere')) {
-        lastCmd = Date.now()
-        const target = extractName(sender)
-        sendCmd(`/tpahere ${target}`)
-        setTimeout(() => sendCmd(`/msg ${target} TPA Here gesendet!`), 1500)
-      } else if (msg2.includes('!tpa')) {
-        lastCmd = Date.now()
-        const target = extractName(sender)
-        sendCmd(`/tpa ${target}`)
-        setTimeout(() => sendCmd(`/msg ${target} TPA gesendet!`), 1500)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
         log('🛑 Stop vom Owner')
@@ -383,6 +397,25 @@ function createBot() {
               const until = new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
               sendCmd(`/msg ${OWNER} ${addPlayer} -> Bot !${botName} | ${addDays} Tage (bis ${until})`)
               log(`[AddBot] ${addPlayer} -> ${botId} | ${addDays} Tage`)
+            }
+          })()
+        }
+      } else if (msg2.includes('!removebot') && isOwner) {
+        lastCmd = Date.now()
+        const parts2 = (content || clean).trim().split(/\s+/)
+        const remPlayer = parts2[1]
+        if (!remPlayer) {
+          sendCmd(`/msg ${OWNER} Nutzung: !removebot SpielerName`)
+        } else {
+          ;(async () => {
+            await loadSubs()
+            if (!subs[remPlayer]) {
+              sendCmd(`/msg ${OWNER} ${remPlayer} hat keine aktive Subscription.`)
+            } else {
+              delete subs[remPlayer]
+              await saveSubs()
+              sendCmd(`/msg ${OWNER} ✅ ${remPlayer} entfernt.`)
+              log(`[RemoveBot] ${remPlayer} entfernt`)
             }
           })()
         }
