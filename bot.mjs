@@ -392,12 +392,12 @@ function createBot(account) {
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
-        setTimeout(() => sendCmd(`/tpahere ${targetName}`), 400)
+        setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
         setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA-Here gesendet! ✅`), 2000)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
-        setTimeout(() => sendCmd(`/tpa ${targetName}`), 400)
+        setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
         setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA gesendet! ✅`), 2000)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
