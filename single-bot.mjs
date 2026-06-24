@@ -316,8 +316,12 @@ function createBot() {
       }
 
       // Nur Owner (!Pranav123237) darf Befehle benutzen
-      const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
-      const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
+      const isWhisper = clean.includes('-> Du') || clean.includes('-> dir') || clean.includes('-> me') || packet.type === 'whisper'
+      const ownerBase = OWNER.startsWith('!') ? OWNER.slice(1) : OWNER
+      const isOwner = sender === OWNER || sender === ownerBase ||
+                      sender.endsWith(OWNER) || sender.endsWith(ownerBase) ||
+                      srcName === OWNER || srcName === ownerBase ||
+                      (isWhisper && (clean.includes(OWNER) || clean.includes(ownerBase)))
 
 
       // /money Antwort auswerten (nach !payout)
