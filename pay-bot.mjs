@@ -144,7 +144,7 @@ async function processPayment(player, amount, sendMsg) {
 
 // ── Zahlungsmuster ────────────────────────────────────────────
 function detectPayment(raw, cb) {
-  const s = raw.replace(/§./g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
+  const s = raw.replace(/[\u00a7§]./g, '').replace(/[\u00a7§]/g, '').replace(/[,\.]/g, m => m === ',' ? '' : '')
   const pats = [
     /^(\S+)\s+hat\s+dir\s+\$?([\d]+)\s+ge(?:geben|zahlt)/i,
     /Du\s+hast\s+\$?([\d]+)\s+von\s+(\S+)\s+erhalten/i,
@@ -233,7 +233,7 @@ function createBot() {
 function extractName(raw) {
   if (raw.includes('->')) {
     // '[Nachricht] !Pranav123237 -> Du' → '!Pranav123237'
-    const m = raw.match(/]s*(.+?)s*->/)
+    const m = raw.match(/\]\s*(.+?)\s*->/)
     return m ? m[1].trim() : raw.trim()
   }
   if (raw.includes('| ')) return raw.split('| ').pop().trim()
@@ -293,12 +293,74 @@ function extractName(raw) {
       const content = ci !== -1 ? clean.slice(ci+2).trim() : clean
       log(`[Chat] <${sender}> ${content}`)
 
-      // Zahlung erkennen
-      const found = detectPayment(clean, (player, amount) => {
-        log(`💰 ${player} zahlt $${amount}`)
+      // Zahlung erkennen — nur echte Server-Nachrichten von [BlockBande]
+      const isServerMsg = /^\[Blockbande\]/i.test(clean.trim())
+      const found = isServerMsg && detectPayment(clean, (player, amount) => {
+        log(`💰 ${player} zahlt ${amount}`)
         processPayment(player, amount, sendCmd)
       })
-      if (!found && (clean.includes('$') || /zahlt|paid|überwiesen/i.test(clean))) {
+      if (isServerMsg && !found && (clean.includes('
+
+      // !tpa / !payout nur für Owner
+      const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
+      const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
+
+      // Balance-Antwort auswerten (nach /money)
+      if (awaitingPayout) {
+        const balMatch = clean.match(/Kontostand:\s*\$?([\d.]+)/i)
+        if (balMatch) {
+          const amount = parseInt(balMatch[1].replace(/\./g, ''))
+          awaitingPayout = false
+          if (amount > 0) {
+            log(`💸 Payout: ${amount} → ${OWNER}`)
+            sendCmd(`/pay ${OWNER} ${amount}`)
+            setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
+            setTimeout(() => sendCmd(`/msg ${OWNER} ✅ Ausgezahlt: ${amount}`), 5000)
+          } else {
+            sendCmd(`/msg ${OWNER} ❌ Kein Guthaben vorhanden`)
+          }
+        }
+      }
+
+      if (isOwner && content.includes('!tpa')) {
+        sendCmd(`/tpa ${OWNER}`)
+        setTimeout(() => sendCmd(`/msg ${OWNER} TPA gesendet! ✅`), 1500)
+      }
+      if (isOwner && content.includes('!payout')) {
+        log('💸 Payout angefragt — checke Guthaben...')
+        awaitingPayout = true
+        sendCmd('/money')
+      }
+    })
+
+    client.on('disconnect', r => {
+      const msg = r?.message || ''
+      if (antiAfk) { clearInterval(antiAfk); antiAfk = null }
+      const isSession = msg.includes('bereits auf dem Netzwerk') || msg.includes('already logged in')
+      log(isSession ? '⏳ Session aktiv — warte 3min...' : `⚠️ ${strip(msg)}`)
+      scheduleReconnect(isSession ? SESSION_MS : RECONNECT_MS)
+    })
+
+    client.on('error', e => {
+      const used = e.message?.includes('device_code') && e.message?.includes('already been used')
+      const authErr = !used && (e.message?.includes('invalid_grant') || e.message?.includes('AADSTS'))
+      log(`❌ ${e.message}`)
+      scheduleReconnect(RECONNECT_MS, authErr)
+    })
+
+    client.on('close', () => { if (antiAfk) { clearInterval(antiAfk); antiAfk = null }; log('Geschlossen.'); scheduleReconnect() })
+  }
+
+  return { connect, loadTokens: () => loadTokens(id, cacheDir) }
+}
+
+// ── Start ─────────────────────────────────────────────────────
+console.log('💰 PayBot startet...')
+const bot = createBot()
+setInterval(loadSubs, 5 * 60 * 1000)
+
+loadSubs().then(() => bot.loadTokens()).then(() => bot.connect())
+) || /zahlt|paid|überwiesen/i.test(clean))) {
         log(`🔍 Mögliche Zahlung (Muster unbekannt): "${clean}"`)
       }
 
