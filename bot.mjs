@@ -326,13 +326,18 @@ function createBot(account) {
       const content = ci !== -1 ? clean.slice(ci+2).trim() : clean
       log(`[Chat] <${sender}> ${content}`)
 
-      const isWhisper = clean.includes('-> Du') || clean.includes('-> dir')
+      const isWhisper = clean.includes('-> Du') || clean.includes('-> dir') || clean.includes('-> me') || packet.type === 'whisper'
 
       // Wer darf mit diesem Bot interagieren?
       // 1. Immer: OWNER (!Pranav123237)
       // 2. Zugewiesener Spieler (wenn aktive Subscription)
       const assignedPlayer = getAssignedPlayer(account.id)
-      const isOwner = sender === OWNER || sender.endsWith(OWNER) || (isWhisper && clean.includes(OWNER))
+      const ownerBase = OWNER.startsWith('!') ? OWNER.slice(1) : OWNER
+      const isWhisperPkt = packet.type === 'whisper'
+      const isOwner = sender === OWNER || sender === ownerBase ||
+                      sender.endsWith(OWNER) || sender.endsWith(ownerBase) ||
+                      srcName === OWNER || srcName === ownerBase ||
+                      ((isWhisper || isWhisperPkt) && (clean.includes(OWNER) || clean.includes(ownerBase)))
       const isAssigned = senderMatches(sender, assignedPlayer, isWhisper, clean)
 
       if (!isOwner && !isAssigned) {
