@@ -368,11 +368,12 @@ function createBot(account) {
       if (msg.includes('!home')) {
         lastCmd = now
         if (isOwner) {
-          // Owner setzt den Home-Punkt des Bots
-          sendCmd('/sethome 1')
-          setTimeout(() => sendCmd(`/msg ${OWNER} Home-Punkt gesetzt! ✅`), 1500)
+          // Owner: !home 1 → /sethome 1 | !home 2 → /sethome 2
+          const homeNum = msg.match(/!home\s+([12])/)?.[1] || '1'
+          sendCmd(`/sethome ${homeNum}`)
+          setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 1500)
         } else {
-          // Subscriber: Bot geht zu seinem Home
+          // Subscriber: Bot geht zu seinem Home 1
           sendCmd('/home 1')
           setTimeout(() => sendCmd(`/msg ${OWNER} Bot ist auf dem Weg zu Home! ✅`), 1500)
         }
@@ -443,6 +444,23 @@ bots.forEach(b => allBots.push(b))
 
 // Subscriptions alle 5min neu laden
 setInterval(loadSubs, 30 * 1000)
+
+// Alle 60s: abgelaufene Subscriptions erkennen → Bot geht zu /home 2
+setInterval(() => {
+  const now = Date.now()
+  for (const inst of Object.values(botInstances)) {
+    if (!inst.isOnline) continue
+    const accountId = Object.keys(botInstances).find(k => botInstances[k] === inst)
+    if (!accountId) continue
+    const wasAssigned = Object.values(subs).some(
+      s => s.assignedBot === accountId && !s.lifetime && s.expiresAt && s.expiresAt > now - 65000 && s.expiresAt <= now
+    )
+    if (wasAssigned) {
+      console.log(`[${accountId}] ⏰ Subscription abgelaufen → /home 2`)
+      inst.sendCommand('/home 2')
+    }
+  }
+}, 60 * 1000)
 
 console.log('📥 Lade Tokens + Subscriptions...')
 Promise.all([loadSubs(), ...bots.map(b => b.loadTokens())]).then(() => {
