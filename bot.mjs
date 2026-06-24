@@ -101,7 +101,13 @@ const stripColors = s => s.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u0
 // '[Nachricht] !Pranav123237 -> Du' → '!Pranav123237'
 // '[CLAN] Rank | PlayerName'        → 'PlayerName'
 function extractName(raw) {
-  if (raw.includes('->')) return raw.replace(/^.*?]s*/, '').replace(/s*->.*$/, '').trim()
+  if (raw.includes('->')) {
+    // Extrahiere Namen zwischen ] und ->, dann strip Rank-Prefix falls vorhanden
+    const m = raw.match(/\]\s*(.+?)\s*->/)
+    let name = m ? m[1].trim() : raw.replace(/\s*->.*$/, '').trim()
+    if (name.includes('| ')) name = name.split('| ').pop().trim()
+    return name
+  }
   if (raw.includes('| ')) return raw.split('| ').pop().trim()
   return raw.trim()
 }
