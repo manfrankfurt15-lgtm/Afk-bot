@@ -69,6 +69,11 @@ http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true, subs: Object.keys(subs).length }))
     })
+  } else if (req.url === '/online') {
+    const online = {}
+    for (const [id, inst] of Object.entries(botInstances)) online[id] = inst.isOnline
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ ok: true, online }))
   } else if (req.url.startsWith('/cmd')) {
     const p = new URL(req.url, 'http://localhost').searchParams
     const botId  = p.get('bot')
@@ -424,7 +429,7 @@ function createBot(account) {
     try { client?.disconnect() } catch {}
   }
 
-  const inst = { connect, forceConnect, shutdown, loadTokens: () => loadTokensFromGitHub(account.id, cacheDir), sendCommand: cmd => sendCmd(cmd) }
+  const inst = { connect, forceConnect, shutdown, loadTokens: () => loadTokensFromGitHub(account.id, cacheDir), sendCommand: cmd => sendCmd(cmd), get isOnline() { return hasSpawned } }
   botInstances[account.id] = inst
   return inst
 }
