@@ -343,8 +343,8 @@ function createBot() {
       const msg2 = content || clean
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
-        sendCmd('/sethome 1')
-        setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home wurde gesetzt!`), 1500)
+        sendCmd('/home 1')
+        setTimeout(() => sendCmd(`/msg ${extractName(sender)} Bot ist auf dem Weg zu Home! ✅`), 1500)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
         log('🛑 Stop vom Owner')
@@ -385,7 +385,7 @@ function createBot() {
             const ex = subs[addPlayer]
             let botId = ex?.assignedBot || null
             const stillActive = botId && (ex?.lifetime || (ex?.expiresAt && ex.expiresAt > nowA))
-            if (!stillActive) botId = getFreeBotId()
+            if (!stillActive) botId = await getFreeBotId()
             if (!botId) {
               sendCmd(`/msg ${OWNER} Alle Bots vergeben! Kein freier Bot fuer ${addPlayer}.`)
             } else {
