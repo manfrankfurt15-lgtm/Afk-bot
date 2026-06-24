@@ -367,15 +367,16 @@ function createBot(account) {
 
       if (msg.includes('!home')) {
         lastCmd = now
-        if (isOwner) {
-          // Owner: !home 1 → /sethome 1 | !home 2 → /sethome 2
-          const homeNum = msg.match(/!home\s+([12])/)?.[1] || '1'
+        if (isOwner && /!home\s+[12]/.test(msg)) {
+          // Nur Owner mit Zahl: !home 1 → /sethome 1 | !home 2 → /sethome 2
+          const homeNum = msg.match(/!home\s+([12])/)[1]
           sendCmd(`/sethome ${homeNum}`)
           setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 1500)
         } else {
-          // Subscriber: Bot geht zu seinem Home 1
+          // Subscriber ODER Owner ohne Zahl → Bot geht zu /home 1
+          const t = isOwner ? OWNER : extractName(sender)
           sendCmd('/home 1')
-          setTimeout(() => sendCmd(`/msg ${OWNER} Bot ist auf dem Weg zu Home! ✅`), 1500)
+          setTimeout(() => sendCmd(`/msg ${t} Bot ist auf dem Weg zu Home! ✅`), 1500)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
