@@ -342,6 +342,12 @@ function createBot() {
       }
 
       if (!isOwner) return
+      // DEBUG: !ping — testet ob /msg funktioniert (beide Formate)
+      if ((content || clean).includes('!ping') && isOwner) {
+        sendCmd(`/msg ${ownerBase} PONG (kein !) ok`)
+        setTimeout(() => sendCmd(`/msg ${OWNER} PONG (mit !) ok`), 400)
+        return
+      }
       if (Date.now() - lastCmd < COOLDOWN) return
 
       const msg2 = content || clean
@@ -349,16 +355,19 @@ function createBot() {
         lastCmd = Date.now()
         sendCmd('/home 1')
         setTimeout(() => sendCmd(`/msg ${ownerBase} Bot ist auf dem Weg zu Home! ✅`), 1500)
+        setTimeout(() => sendCmd(`/msg ${OWNER} Bot ist auf dem Weg zu Home! ✅`), 1800)
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
         setTimeout(() => sendCmd(`/msg ${ownerBase} TPA-Here gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${OWNER} TPA-Here gesendet! ✅`), 2300)
       } else if (msg2.includes('!tpa') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
         setTimeout(() => sendCmd(`/msg ${ownerBase} TPA gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${OWNER} TPA gesendet! ✅`), 2300)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
         log('🛑 Stop vom Owner')
