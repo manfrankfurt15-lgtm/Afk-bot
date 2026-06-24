@@ -365,11 +365,11 @@ function createBot(account) {
         if (isOwner) {
           // Owner setzt den Home-Punkt des Bots
           sendCmd('/sethome 1')
-          setTimeout(() => sendCmd(`/msg ${extractName(sender)} Home-Punkt gesetzt! ✅`), 1500)
+          setTimeout(() => sendCmd(`/msg ${OWNER} Home-Punkt gesetzt! ✅`), 1500)
         } else {
           // Subscriber: Bot geht zu seinem Home
           sendCmd('/home 1')
-          setTimeout(() => sendCmd(`/msg ${extractName(sender)} Bot ist auf dem Weg zu Home! ✅`), 1500)
+          setTimeout(() => sendCmd(`/msg ${OWNER} Bot ist auf dem Weg zu Home! ✅`), 1500)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
@@ -390,7 +390,7 @@ function createBot(account) {
           const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
           const gt = readGamertag(cacheDir)
           const displayName = gt ? `!${gt}` : account.id
-          sendCmd(`/msg ${extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
+          sendCmd(`/msg ${isOwner ? OWNER : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
         }
       }
     })
