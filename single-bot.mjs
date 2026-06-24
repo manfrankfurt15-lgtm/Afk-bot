@@ -448,6 +448,30 @@ function createBot() {
             }
           })()
         }
+      } else if (msg2.includes('!kick') && isOwner) {
+        lastCmd = Date.now()
+        const kParts = (content || clean).trim().split(/\s+/)
+        const kPlayer = kParts[1]
+        if (!kPlayer) {
+          sendCmd(`/msg ${OWNER} Nutzung: !kick SpielerName`)
+        } else {
+          ;(async () => {
+            await loadSubs()
+            const kSub = subs[kPlayer]
+            if (!kSub?.assignedBot) {
+              sendCmd(`/msg ${OWNER} ${kPlayer} hat keine Subscription.`)
+            } else {
+              const kBotId = kSub.assignedBot
+              delete subs[kPlayer]
+              await saveSubs()
+              const kSet1 = ['account1','account2','account3'].includes(kBotId)
+              const kBase = kSet1 ? AFK_SET1_URL : AFK_SET2_URL
+              fetch(`${kBase}/cmd?bot=${encodeURIComponent(kBotId)}&cmd=${encodeURIComponent('/home 2')}`).catch(() => {})
+              sendCmd(`/msg ${OWNER} ✅ ${kPlayer} gekickt. Bot geht zu Home 2.`)
+              log(`[Kick] ${kPlayer} -> ${kBotId} -> /home 2`)
+            }
+          })()
+        }
       }
     })
 
