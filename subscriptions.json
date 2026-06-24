@@ -18,10 +18,5 @@
     "assignedBot": "account4",
     "expiresAt": 1782842326784,
     "lifetime": false
-  },
-  "stack": {
-    "assignedBot": "account5",
-    "expiresAt": null,
-    "lifetime": true
   }
 }
