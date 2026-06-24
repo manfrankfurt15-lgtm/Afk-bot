@@ -69,6 +69,22 @@ http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true, subs: Object.keys(subs).length }))
     })
+  } else if (req.url.startsWith('/cmd')) {
+    const p = new URL(req.url, 'http://localhost').searchParams
+    const botId  = p.get('bot')
+    const cmd    = p.get('cmd')    ? decodeURIComponent(p.get('cmd'))    : null
+    const player = p.get('player') ? decodeURIComponent(p.get('player')) : null
+    const msg    = p.get('msg')    ? decodeURIComponent(p.get('msg'))    : null
+    const b = botInstances[botId]
+    if (b && cmd) {
+      b.sendCommand(cmd)
+      if (player && msg) setTimeout(() => b.sendCommand(`/msg ${player} ${msg}`), 1500)
+      res.writeHead(200, {'Content-Type':'application/json'})
+      res.end(JSON.stringify({ ok: true, bot: botId, cmd }))
+    } else {
+      res.writeHead(404, {'Content-Type':'application/json'})
+      res.end(JSON.stringify({ ok: false, reason: botId ? 'Bot nicht gefunden' : 'Kein bot= Parameter' }))
+    }
   } else {
     res.writeHead(200); res.end('Bot läuft! Status: /ping')
   }
@@ -182,6 +198,7 @@ async function saveGamertag(accountId, gamertag) {
 // ── Bot erstellen ─────────────────────────────────────────────
 let globalStopped = false
 const allBots = []
+const botInstances = {}  // accountId → { sendCommand }
 
 function stopAllBots() {
   globalStopped = true
@@ -407,7 +424,9 @@ function createBot(account) {
     try { client?.disconnect() } catch {}
   }
 
-  return { connect, forceConnect, shutdown, loadTokens: () => loadTokensFromGitHub(account.id, cacheDir) }
+  const inst = { connect, forceConnect, shutdown, loadTokens: () => loadTokensFromGitHub(account.id, cacheDir), sendCommand: cmd => sendCmd(cmd) }
+  botInstances[account.id] = inst
+  return inst
 }
 
 // ── Start ─────────────────────────────────────────────────────
