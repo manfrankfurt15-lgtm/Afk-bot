@@ -22,21 +22,15 @@ const AFK_SET1_URL = 'https://pranav-afk-bot.onrender.com'
 const AFK_SET2_URL = 'https://pranav-afk-bot-2.onrender.com'
 const MAIN_BOTS = ['account1','account2','account3','account4','account5','account6']
 
-const TIERS = [
-  { min: 1250000, seconds: 0 },           // Lifetime
-  { min: 150000,  seconds: 30*24*3600 },  // 1 Monat
-  { min: 45000,   seconds:  7*24*3600 },  // 1 Woche
-]
+// Nur diese exakten Beträge sind erlaubt
+const VALID_AMOUNTS = {
+  45000:   { seconds: 7*24*3600,  label: '1 Woche' },
+  150000:  { seconds: 30*24*3600, label: '1 Monat' },
+  1250000: { seconds: 0,          label: 'Lifetime' },
+}
 
-function calcSeconds(amount) {
-  for (const t of TIERS) {
-    if (amount >= t.min) {
-      if (t.seconds === 0) return 0
-      const factor = Math.floor(amount / t.min)
-      return factor * t.seconds
-    }
-  }
-  return 0
+function getTier(amount) {
+  return VALID_AMOUNTS[amount] || null
 }
 
 const stripColors = s => s.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u00A7§]/g, '')
@@ -129,11 +123,15 @@ async function getFreeBotId() {
 
 // ── Zahlung verarbeiten ───────────────────────────────────────
 async function processPayment(player, amount, sendCmd) {
-  const seconds = calcSeconds(amount)
-  if (seconds === 0 && amount < 1) {
-    sendCmd(`/msg ${player} Betrag zu niedrig. Min: $1`)
+  const tier = getTier(amount)
+  if (!tier) {
+    sendCmd(`/msg ${player} Ungültiger Betrag! Erlaubt: $45.000 | $150.000 | $1.250.000`)
+    sendCmd(`/pay ${player} ${amount}`)
+    setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
+    log(`[Refund] Ungültiger Betrag $${amount} von ${player} → zurückgezahlt`)
     return
   }
+  const seconds = tier.seconds
 
   await loadSubs()
   const now = Date.now()
@@ -144,7 +142,7 @@ async function processPayment(player, amount, sendCmd) {
     return
   }
 
-  const isLifetime = seconds === 0
+  const isLifetime = tier.seconds === 0
   let botId = existing?.assignedBot || null
   const botStillActive = botId && (existing?.lifetime || (existing?.expiresAt && existing.expiresAt > now))
   if (!botStillActive) botId = await getFreeBotId()
