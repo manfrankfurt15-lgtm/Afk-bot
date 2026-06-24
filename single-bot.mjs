@@ -248,7 +248,7 @@ function createBot() {
   mkdirSync(cacheDir, { recursive: true })
   let client, reconnecting = false, spawnTimer = null, hasSpawned = false
   let entityId = BigInt(0), antiAfk = null, lastCmd = 0, awaitingPayout = false
-  const COOLDOWN = 5000
+  const COOLDOWN = 1500
 
   const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [Bot] ${m}`)
 
@@ -348,17 +348,17 @@ function createBot() {
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
         sendCmd('/home 1')
-        setTimeout(() => sendCmd(`/msg ${OWNER} Bot ist auf dem Weg zu Home! ✅`), 1500)
+        setTimeout(() => sendCmd(`/msg ${ownerBase} Bot ist auf dem Weg zu Home! ✅`), 1500)
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
-        setTimeout(() => sendCmd(`/msg ${OWNER} TPA-Here gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${ownerBase} TPA-Here gesendet! ✅`), 2000)
       } else if (msg2.includes('!tpa') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
-        setTimeout(() => sendCmd(`/msg ${OWNER} TPA gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${ownerBase} TPA gesendet! ✅`), 2000)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
         log('🛑 Stop vom Owner')
