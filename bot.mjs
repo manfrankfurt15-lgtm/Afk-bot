@@ -228,7 +228,7 @@ function createBot(account) {
   let client, reconnecting = false, spawnTimer = null, hasSpawned = false
   let entityId = BigInt(0), lastPos = { x:0, y:64, z:0 }, lastYaw = 0
   let antiAfk = null, lastCmd = 0
-  const COOLDOWN = 5000
+  const COOLDOWN = 1500
 
   const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [${account.id}] ${m}`)
 
@@ -382,23 +382,23 @@ function createBot(account) {
           // Nur Owner mit Zahl: !home 1 → /sethome 1 | !home 2 → /sethome 2
           const homeNum = msg.match(/!home\s+([12])/)[1]
           sendCmd(`/sethome ${homeNum}`)
-          setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 1500)
+          setTimeout(() => sendCmd(`/msg ${ownerBase} Home-${homeNum} gesetzt! ✅`), 1500)
         } else {
           // Subscriber ODER Owner ohne Zahl → Bot geht zu /home 1
           const t = isOwner ? OWNER : extractName(sender)
           sendCmd('/home 1')
-          setTimeout(() => sendCmd(`/msg ${t} Bot ist auf dem Weg zu Home! ✅`), 1500)
+          setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : t} Bot ist auf dem Weg zu Home! ✅`), 1500)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA-Here gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA-Here gesendet! ✅`), 2000)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA gesendet! ✅`), 2000)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
@@ -408,7 +408,7 @@ function createBot(account) {
           const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
           const gt = readGamertag(cacheDir)
           const displayName = gt ? `!${gt}` : account.id
-          sendCmd(`/msg ${isOwner ? OWNER : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
+          sendCmd(`/msg ${isOwner ? ownerBase : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
         }
       }
     })
