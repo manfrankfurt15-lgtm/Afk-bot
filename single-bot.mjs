@@ -306,12 +306,14 @@ function createBot() {
       const content = ci !== -1 ? clean.slice(ci+2).trim() : clean
       log(`[Chat] <${sender}> ${content}`)
 
-      // Zahlung erkennen
-      const found = detectPayment(clean, (player, amount) => {
+      // Zahlung erkennen — NUR wenn [BlockBande] am Anfang steht (Server-Nachricht)
+      // Wenn ein Spielername VOR [BlockBande] steht → ignorieren
+      const isServerMsg = /^\[Blockbande\]/i.test(clean.trim())
+      const found = isServerMsg && detectPayment(clean, (player, amount) => {
         log(`💰 ${player} zahlt $${amount}`)
         processPayment(player, amount, sendCmd)
       })
-      if (!found && (clean.includes('$') || /hat dir|erhalten|zahlt|paid|überwiesen/i.test(clean))) {
+      if (!found && isServerMsg && (clean.includes('$') || /hat dir|erhalten|zahlt|paid|überwiesen/i.test(clean))) {
         log(`🔍 Unbekanntes Muster: "${clean}"`)
       }
 
