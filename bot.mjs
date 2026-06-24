@@ -372,6 +372,14 @@ function createBot(account) {
         return
       }
 
+      // DEBUG: !ping testet ob /msg funktioniert
+      const msgPre = content || clean
+      if (msgPre.includes('!ping') && isOwner) {
+        sendCmd(`/msg ${ownerBase} PONG kein-!`)
+        setTimeout(() => sendCmd(`/msg ${OWNER} PONG mit-!`), 400)
+        return
+      }
+
       const now = Date.now()
       if (now - lastCmd < COOLDOWN) return
       const msg = content || clean
@@ -383,22 +391,26 @@ function createBot(account) {
           const homeNum = msg.match(/!home\s+([12])/)[1]
           sendCmd(`/sethome ${homeNum}`)
           setTimeout(() => sendCmd(`/msg ${ownerBase} Home-${homeNum} gesetzt! ✅`), 1500)
+          setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 1800)
         } else {
           // Subscriber ODER Owner ohne Zahl → Bot geht zu /home 1
           const t = isOwner ? OWNER : extractName(sender)
           sendCmd('/home 1')
           setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : t} Bot ist auf dem Weg zu Home! ✅`), 1500)
+          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Bot ist auf dem Weg zu Home! ✅`), 1800)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
         setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA-Here gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA-Here gesendet! ✅`), 2300)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
         setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA gesendet! ✅`), 2000)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA gesendet! ✅`), 2300)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
