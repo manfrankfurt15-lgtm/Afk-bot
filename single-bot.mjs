@@ -352,12 +352,12 @@ function createBot() {
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        setTimeout(() => sendCmd(`/tpahere ${t}`), 400)
+        setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
         setTimeout(() => sendCmd(`/msg ${OWNER} TPA-Here gesendet! ✅`), 2000)
       } else if (msg2.includes('!tpa') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        setTimeout(() => sendCmd(`/tpa ${t}`), 400)
+        setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
         setTimeout(() => sendCmd(`/msg ${OWNER} TPA gesendet! ✅`), 2000)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
