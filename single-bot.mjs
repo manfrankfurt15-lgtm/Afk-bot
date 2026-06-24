@@ -313,47 +313,7 @@ function createBot() {
         }
       }
 
-      // ── Subscriber-Befehle weiterleiten ─────────────────────────
-      if (!isOwner) {
-        const _now = Date.now()
-        const _msg = content || clean
-        if (!(_msg.includes('!tpa') || _msg.includes('!home') || _msg.includes('!info'))) return
-
-        ;(async () => {
-          const findActiveSub = (name) => {
-            if (!name) return null
-            const nl = name.toLowerCase()
-            for (const [p, s] of Object.entries(subs)) {
-              const active = s.assignedBot && (s.lifetime || (s.expiresAt && s.expiresAt > _now))
-              if (active && (nl === p.toLowerCase() || nl.endsWith(p.toLowerCase()))) return { player: p, ...s }
-            }
-            return null
-          }
-          let sub = findActiveSub(sender) || findActiveSub(srcName) || findActiveSub(extractName(sender))
-          if (!sub) { await loadSubs(); sub = findActiveSub(sender) || findActiveSub(srcName) || findActiveSub(extractName(sender)) }
-          if (!sub || _now - lastCmd < COOLDOWN) return
-
-          lastCmd = _now
-          const isSet1 = ['account1','account2','account3'].includes(sub.assignedBot)
-          const afkBase = isSet1 ? 'https://pranav-afk-bot.onrender.com' : 'https://pranav-afk-bot-2.onrender.com'
-          const t = extractName(sender) || sender
-
-          if (_msg.includes('!tpahere')) {
-            fetch(`${afkBase}/cmd?bot=${encodeURIComponent(sub.assignedBot)}&cmd=${encodeURIComponent('/tpahere '+t)}&player=${encodeURIComponent(t)}&msg=${encodeURIComponent('TPA-Here gesendet! ✅')}`).catch(() => {})
-          } else if (_msg.includes('!tpa')) {
-            fetch(`${afkBase}/cmd?bot=${encodeURIComponent(sub.assignedBot)}&cmd=${encodeURIComponent('/tpa '+t)}&player=${encodeURIComponent(t)}&msg=${encodeURIComponent('TPA gesendet! ✅')}`).catch(() => {})
-          } else if (_msg.includes('!home')) {
-            fetch(`${afkBase}/cmd?bot=${encodeURIComponent(sub.assignedBot)}&cmd=${encodeURIComponent('/home 1')}&player=${encodeURIComponent(t)}&msg=${encodeURIComponent('Bot auf dem Weg zu Home! ✅')}`).catch(() => {})
-          } else if (_msg.includes('!info')) {
-            loadGamertags().then(gts => {
-              const ts = sub.lifetime ? 'LIFETIME' : `bis ${new Date(sub.expiresAt).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`
-              sendCmd(`/msg ${t} Dein Bot: !${gts[sub.assignedBot] || sub.assignedBot} | ${ts}`)
-            })
-          }
-        })()
-        return
-      }
-
+      if (!isOwner) return
       if (Date.now() - lastCmd < COOLDOWN) return
 
       const msg2 = content || clean
