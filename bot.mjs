@@ -359,8 +359,8 @@ function createBot(account) {
             setTimeout(() => sendCmd(`/msg ${t2} TPA gesendet! ✅`), 2000)
           } else if (msg2.includes('!home')) {
             lastCmd = now2
-            sendCmd('/home 1')
-            setTimeout(() => sendCmd(`/msg ${t2} Bot ist auf dem Weg zu Home! ✅`), 1500)
+            sendCmd('/sethome 1')
+            setTimeout(() => sendCmd(`/msg ${t2} Home-1 gesetzt! ✅`), 600)
           } else if (msg2.includes('!info')) {
             lastCmd = now2
             const entry2 = subs[ap2]
@@ -385,16 +385,15 @@ function createBot(account) {
 
       if (msg.includes('!home')) {
         lastCmd = now
-        if (isOwner && /!home\s+[12]/.test(msg)) {
-          // Nur Owner mit Zahl: !home 1 → /sethome 1 | !home 2 → /sethome 2
-          const homeNum = msg.match(/!home\s+([12])/)[1]
-          sendCmd(`/sethome ${homeNum}`)
-          setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 600)
+        if (isOwner && /!home\s+2/.test(msg)) {
+          // Nur Owner: !home 2 → /sethome 2
+          sendCmd('/sethome 2')
+          setTimeout(() => sendCmd(`/msg ${OWNER} Home-2 gesetzt! ✅`), 600)
         } else {
-          // Subscriber ODER Owner ohne Zahl → Bot geht zu /home 1
-          const t = isOwner ? OWNER : extractName(sender)
-          sendCmd('/home 1')
-          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Bot auf dem Weg! ✅`), 600)
+          // Alle (!home oder !home 1) → /sethome 1
+          const t = extractName(sender)
+          sendCmd('/sethome 1')
+          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Home-1 gesetzt! ✅`), 600)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
