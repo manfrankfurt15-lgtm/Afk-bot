@@ -353,18 +353,18 @@ function createBot() {
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
         const homeNum = /!home\s+2/.test(msg2) ? '2' : '1'
+        sendCmd(`/msg ${ownerBase} Home-${homeNum} gesetzt! ✅`)
         sendCmd(`/sethome ${homeNum}`)
-        setTimeout(() => sendCmd(`/say Home-${homeNum} gesetzt! ✅`), 600)
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
+        sendCmd(`/msg ${ownerBase} TPA-Here gesendet! ✅`)
         setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
-        setTimeout(() => sendCmd(`/say TPA-Here gesendet! ✅`), 600)
       } else if (msg2.includes('!tpa') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
+        sendCmd(`/msg ${ownerBase} TPA gesendet! ✅`)
         setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
-        setTimeout(() => sendCmd(`/say TPA gesendet! ✅`), 600)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
         log('🛑 Stop vom Owner')
