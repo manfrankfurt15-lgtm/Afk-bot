@@ -352,8 +352,9 @@ function createBot() {
       const msg2 = content || clean
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
-        sendCmd('/home 1')
-        setTimeout(() => sendCmd(`/msg ${OWNER} Bot auf dem Weg! ✅`), 600)
+        const homeNum = /!home\s+2/.test(msg2) ? '2' : '1'
+        sendCmd(`/sethome ${homeNum}`)
+        setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 600)
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
