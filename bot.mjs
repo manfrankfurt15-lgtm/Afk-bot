@@ -375,8 +375,7 @@ function createBot(account) {
       // DEBUG: !ping testet ob /msg funktioniert
       const msgPre = content || clean
       if (msgPre.includes('!ping') && isOwner) {
-        sendCmd(`/msg ${ownerBase} PONG kein-!`)
-        setTimeout(() => sendCmd(`/msg ${OWNER} PONG mit-!`), 400)
+        sendCmd(`/msg ${OWNER} PONG ok ✅`)
         return
       }
 
@@ -390,30 +389,23 @@ function createBot(account) {
           // Nur Owner mit Zahl: !home 1 → /sethome 1 | !home 2 → /sethome 2
           const homeNum = msg.match(/!home\s+([12])/)[1]
           sendCmd(`/sethome ${homeNum}`)
-          setTimeout(() => sendCmd(`/msg ${ownerBase} Home-${homeNum} gesetzt! ✅`), 1500)
-          setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 1800)
+          setTimeout(() => sendCmd(`/msg ${OWNER} Home-${homeNum} gesetzt! ✅`), 600)
         } else {
           // Subscriber ODER Owner ohne Zahl → Bot geht zu /home 1
           const t = isOwner ? OWNER : extractName(sender)
           sendCmd('/home 1')
-          setTimeout(() => sendCmd(`/tell ${isOwner ? ownerBase : t} Bot auf dem Weg! ✅`), 600)
-          setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : t} Bot auf dem Weg! ✅`), 900)
-          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Bot auf dem Weg! ✅`), 1200)
+          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Bot auf dem Weg! ✅`), 600)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/tell ${isOwner ? ownerBase : targetName} TPA-Here gesendet! ✅`), 600)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA-Here gesendet! ✅`), 900)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA-Here gesendet! ✅`), 1200)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA-Here gesendet! ✅`), 600)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/tell ${isOwner ? ownerBase : targetName} TPA gesendet! ✅`), 600)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA gesendet! ✅`), 900)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA gesendet! ✅`), 1200)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} TPA gesendet! ✅`), 600)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
@@ -423,7 +415,7 @@ function createBot(account) {
           const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
           const gt = readGamertag(cacheDir)
           const displayName = gt ? `!${gt}` : account.id
-          sendCmd(`/msg ${isOwner ? ownerBase : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
+          sendCmd(`/msg ${isOwner ? OWNER : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
         }
       }
     })
