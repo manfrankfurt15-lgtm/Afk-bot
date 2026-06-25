@@ -375,7 +375,7 @@ function createBot(account) {
       // DEBUG: !ping testet ob /msg funktioniert
       const msgPre = content || clean
       if (msgPre.includes('!ping') && isOwner) {
-        sendCmd(`/msg ${ownerBase} PONG ok ✅`)
+        sendCmd(`/say PONG ok ✅`)
         return
       }
 
@@ -388,7 +388,7 @@ function createBot(account) {
         if (isOwner && /!home\s+2/.test(msg)) {
           // Nur Owner: !home 2 → /sethome 2
           sendCmd('/sethome 2')
-          setTimeout(() => sendCmd(`/msg ${ownerBase} Home-2 gesetzt! ✅`), 600)
+          setTimeout(() => sendCmd(`/say Home-2 gesetzt! ✅`), 600)
         } else {
           // Alle (!home oder !home 1) → /sethome 1
           const t = extractName(sender)
