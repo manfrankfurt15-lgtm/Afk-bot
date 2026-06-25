@@ -351,16 +351,16 @@ function createBot(account) {
           const t2 = extractName(sender)
           if (msg2.includes('!tpahere')) {
             lastCmd = now2
+            sendCmd(`/msg ${t2} TPA-Here gesendet! ✅`)
             setTimeout(() => sendCmd(`/tpahere ${t2}`), 400)
-            setTimeout(() => sendCmd(`/msg ${t2} TPA-Here gesendet! ✅`), 2000)
           } else if (msg2.includes('!tpa')) {
             lastCmd = now2
+            sendCmd(`/msg ${t2} TPA gesendet! ✅`)
             setTimeout(() => sendCmd(`/tpa ${t2}`), 400)
-            setTimeout(() => sendCmd(`/msg ${t2} TPA gesendet! ✅`), 2000)
           } else if (msg2.includes('!home')) {
             lastCmd = now2
+            sendCmd(`/msg ${t2} Home-1 gesetzt! ✅`)
             sendCmd('/sethome 1')
-            setTimeout(() => sendCmd(`/msg ${t2} Home-1 gesetzt! ✅`), 600)
           } else if (msg2.includes('!info')) {
             lastCmd = now2
             const entry2 = subs[ap2]
@@ -388,7 +388,7 @@ function createBot(account) {
         if (isOwner && /!home\s+2/.test(msg)) {
           // Nur Owner: !home 2 → /sethome 2
           sendCmd('/sethome 2')
-          setTimeout(() => sendCmd(`/say Home-2 gesetzt! ✅`), 600)
+          sendCmd(`/msg ${ownerBase} Home-2 gesetzt! ✅`)
         } else {
           // Alle (!home oder !home 1) → /sethome 1
           const t = extractName(sender)
