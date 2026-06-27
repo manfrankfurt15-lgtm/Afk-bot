@@ -351,15 +351,15 @@ function createBot(account) {
           const t2 = extractName(sender)
           if (msg2.includes('!tpahere')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} TPA-Here gesendet`)
+            sendCmd(`/msg ${t2} Ich teleportiere mich zu dir, bitte annehmen!`)
             setTimeout(() => sendCmd(`/tpahere ${t2}`), 400)
           } else if (msg2.includes('!tpa')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} TPA gesendet`)
+            sendCmd(`/msg ${t2} Teleportationsanfrage gesendet, bitte annehmen!`)
             setTimeout(() => sendCmd(`/tpa ${t2}`), 400)
           } else if (msg2.includes('!home')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} Home gesetzt`)
+            sendCmd(`/msg ${t2} Dein Home wurde erfolgreich gesetzt!`)
             sendCmd('/sethome 1')
           } else if (msg2.includes('!info')) {
             lastCmd = now2
@@ -393,18 +393,18 @@ function createBot(account) {
           // Alle (!home oder !home 1) → /sethome 1
           const t = extractName(sender)
           sendCmd('/sethome 1')
-          setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : t} Home gesetzt`), 600)
+          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Home 1 wurde erfolgreich gesetzt!`), 600)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA-Here gesendet`), 600)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Ich teleportiere mich zu dir, bitte annehmen!`), 600)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA gesendet`), 600)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Teleportationsanfrage gesendet, bitte annehmen!`), 600)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
