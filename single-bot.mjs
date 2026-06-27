@@ -334,9 +334,9 @@ function createBot() {
             log(`💸 Payout: ${amount} → ${OWNER}`)
             sendCmd(`/pay ${OWNER} ${amount}`)
             setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
-            setTimeout(() => sendCmd(`/say ✅ Ausgezahlt: ${amount}`), 5000)
+            setTimeout(() => sendCmd(`/say Ausgezahlt: ${amount}`), 5000)
           } else {
-            sendCmd(`/say ❌ Kein Guthaben vorhanden`)
+            sendCmd(`/say Kein Guthaben vorhanden`)
           }
         }
       }
@@ -344,7 +344,7 @@ function createBot() {
       if (!isOwner) return
       // DEBUG: !ping — testet ob /msg funktioniert (beide Formate)
       if ((content || clean).includes('!ping') && isOwner) {
-        sendCmd(`/say PONG ok ✅`)
+        sendCmd(`/say PONG ok`)
         return
       }
       if (Date.now() - lastCmd < COOLDOWN) return
@@ -353,17 +353,17 @@ function createBot() {
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
         const homeNum = /!home\s+2/.test(msg2) ? '2' : '1'
-        sendCmd(`/msg ${ownerBase} Home-${homeNum} gesetzt! ✅`)
+        sendCmd(`/msg ${ownerBase} Home ${homeNum} gesetzt`)
         sendCmd(`/sethome ${homeNum}`)
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        sendCmd(`/msg ${ownerBase} TPA-Here gesendet! ✅`)
+        sendCmd(`/msg ${ownerBase} TPA-Here gesendet`)
         setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
       } else if (msg2.includes('!tpa') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        sendCmd(`/msg ${ownerBase} TPA gesendet! ✅`)
+        sendCmd(`/msg ${ownerBase} TPA gesendet`)
         setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
@@ -434,7 +434,7 @@ function createBot() {
             } else {
               delete subs[remPlayer]
               await saveSubs()
-              sendCmd(`/say ✅ ${remPlayer} entfernt.`)
+              sendCmd(`/say ${remPlayer} entfernt.`)
               log(`[RemoveBot] ${remPlayer} entfernt`)
             }
           })()
@@ -463,7 +463,7 @@ function createBot() {
               const gts  = await loadGamertags()
               const bName = gts[eEx.assignedBot] || eEx.assignedBot
               const until = new Date(newExp).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
-              sendCmd(`/say ✅ ${ePlayer} -> !${bName} | +${eDays} Tage (neu: bis ${until})`)
+              sendCmd(`/say ${ePlayer} -> !${bName} | +${eDays} Tage (neu: bis ${until})`)
               log(`[Extend] ${ePlayer} +${eDays} Tage -> bis ${until}`)
             }
           })()
@@ -487,7 +487,7 @@ function createBot() {
               const kSet1 = ['account1','account2','account3'].includes(kBotId)
               const kBase = kSet1 ? AFK_SET1_URL : AFK_SET2_URL
               fetch(`${kBase}/cmd?bot=${encodeURIComponent(kBotId)}&cmd=${encodeURIComponent('/home 2')}`).catch(() => {})
-              sendCmd(`/say ✅ ${kPlayer} gekickt. Bot geht zu Home 2.`)
+              sendCmd(`/say ${kPlayer} gekickt. Bot geht zu Home 2.`)
               log(`[Kick] ${kPlayer} -> ${kBotId} -> /home 2`)
             }
           })()
