@@ -361,7 +361,7 @@ function createBot(account) {
           const t2 = extractName(sender)
           if (msg2.includes('!tpahere')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} Ich teleportiere mich zu dir, bitte annehmen!`)
+            sendCmd(`/msg ${t2} Ich hab dir eine tpahere anfrage geschickt!`)
             setTimeout(() => sendCmd(`/tpahere ${t2}`), 400)
           } else if (msg2.includes('!tpa')) {
             lastCmd = now2
@@ -409,7 +409,7 @@ function createBot(account) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Ich teleportiere mich zu dir, bitte annehmen!`), 600)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Ich hab dir eine tpahere anfrage geschickt!`), 600)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
