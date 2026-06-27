@@ -439,9 +439,12 @@ function createBot(account) {
     })
 
     client.on('error', e => {
-      const used = e.message?.includes('device_code') && e.message?.includes('already been used')
-      const authErr = !used && (e.message?.includes('invalid_grant') || e.message?.includes('AADSTS'))
-      log(`❌ ${e.message}`)
+      const msg = e.message || ''
+      // Read/Parse-Fehler sind harmlose Protokoll-Warnungen — kein Reconnect noetig
+      if (msg.includes('Read error') || msg.includes('Invalid tag')) return
+      const used = msg.includes('device_code') && msg.includes('already been used')
+      const authErr = !used && (msg.includes('invalid_grant') || msg.includes('AADSTS'))
+      log(`❌ ${msg}`)
       scheduleReconnect(RECONNECT_MS, authErr)
     })
 
