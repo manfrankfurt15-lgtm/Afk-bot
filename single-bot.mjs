@@ -334,9 +334,9 @@ function createBot() {
             log(`💸 Payout: ${amount} → ${OWNER}`)
             sendCmd(`/pay ${OWNER} ${amount}`)
             setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
-            setTimeout(() => sendCmd(`/say Ausgezahlt: ${amount}`), 5000)
+            setTimeout(() => sendCmd(`/say Auszahlung von ${amount}$ an dich wurde erfolgreich gesendet!`), 5000)
           } else {
-            sendCmd(`/say Kein Guthaben vorhanden`)
+            sendCmd(`/say Es ist kein Guthaben vorhanden zum Auszahlen.`)
           }
         }
       }
@@ -353,17 +353,17 @@ function createBot() {
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
         const homeNum = /!home\s+2/.test(msg2) ? '2' : '1'
-        sendCmd(`/msg ${ownerBase} Home ${homeNum} gesetzt`)
+        sendCmd(`/msg ${OWNER} Home ${homeNum} wurde erfolgreich gesetzt!`)
         sendCmd(`/sethome ${homeNum}`)
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        sendCmd(`/msg ${ownerBase} TPA-Here gesendet`)
+        sendCmd(`/msg ${OWNER} Ich teleportiere mich zu dir, bitte annehmen!`)
         setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
       } else if (msg2.includes('!tpa') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        sendCmd(`/msg ${ownerBase} TPA gesendet`)
+        sendCmd(`/msg ${OWNER} Teleportationsanfrage gesendet, bitte annehmen!`)
         setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
@@ -382,7 +382,7 @@ function createBot() {
             sendCmd(`/say Aktive Subs: ${active.length}`)
             active.forEach(([player, s], idx) => {
               const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
-              setTimeout(() => sendCmd(`/msg ${ownerBase} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
+              setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
             })
           }
         })
