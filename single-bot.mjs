@@ -122,7 +122,7 @@ async function getFreeBotId() {
 }
 
 // ── Zahlung verarbeiten ───────────────────────────────────────
-async function processPayment(player, amount, sendCmd).catch(e => log(`❌ processPayment Fehler: ${e.message}`)) {
+async function processPayment(player, amount, sendCmd) {
   const tier = getTier(amount)
   if (!tier) {
     sendCmd(`/msg ${player} Ungültiger Betrag! Erlaubt: $45.000 | $150.000 | $1.250.000`)
@@ -335,7 +335,7 @@ function createBot() {
       const isServerMsg = /^\[Blockbande\]/i.test(clean.trim())
       const found = isServerMsg && detectPayment(clean, (player, amount) => {
         log(`💰 ${player} zahlt $${amount}`)
-        processPayment(player, amount, sendCmd)
+        processPayment(player, amount, sendCmd).catch(e => log(`❌ processPayment Fehler: ${e.message}`))
       })
       if (!found && isServerMsg && (clean.includes('$') || /hat dir|erhalten|zahlt|paid|überwiesen/i.test(clean))) {
         log(`🔍 Unbekanntes Muster: "${clean}"`)
