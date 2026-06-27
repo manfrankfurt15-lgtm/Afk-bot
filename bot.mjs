@@ -302,7 +302,17 @@ function createBot(account) {
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       botStatus[account.id] = { online: true, since: new Date().toISOString() }
       log('✅ Im Server!')
-      setTimeout(() => sendCmd('/home 1'), 5000)
+      // Nach Spawn: Subs neu laden und prüfen ob Bot noch zugewiesen ist
+      loadSubs().then(() => {
+        const assignedPlayer = getAssignedPlayer(account.id)
+        if (assignedPlayer) {
+          log(`🏠 Spieler ${assignedPlayer} aktiv → /home 1`)
+          setTimeout(() => sendCmd('/home 1'), 5000)
+        } else {
+          log('🏠 Kein aktiver Spieler → /home 2')
+          setTimeout(() => sendCmd('/home 2'), 5000)
+        }
+      })
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
       // Gestaffelt speichern: account1=8s, account2=12s, account3=16s, etc.
       const accountNum = parseInt(account.id.replace('account','')) || 1
