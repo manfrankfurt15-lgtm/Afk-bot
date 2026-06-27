@@ -143,13 +143,39 @@ async function processPayment(player, amount, sendCmd) {
   }
 
   const isLifetime = tier.seconds === 0
+
+  // Online-Bots ermitteln (einmalig für alle Checks)
+  const onlineBots = await getOnlineBots()
+
+  // Kein einziger Bot auf blockbande.de online → sofort zurückzahlen
+  if (onlineBots.size === 0) {
+    log(`[Refund] Kein Bot online auf blockbande.de — zahle ${amount} zurueck an ${player}`)
+    sendCmd(`/msg ${player} Aktuell ist kein Bot online. Dein Geld wird zurueckgegeben.`)
+    sendCmd(`/pay ${player} ${amount}`)
+    setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
+    return
+  }
+
   let botId = existing?.assignedBot || null
   const botStillActive = botId && (existing?.lifetime || (existing?.expiresAt && existing.expiresAt > now))
-  if (!botStillActive) botId = await getFreeBotId()
+
+  // Prüfen ob der bereits zugewiesene Bot auch wirklich online ist
+  if (botStillActive && !onlineBots.has(botId)) {
+    log(`[Info] Zugewiesener Bot ${botId} ist offline — suche freien Online-Bot`)
+    botId = MAIN_BOTS.filter(b => {
+      const s = Object.values(subs).find(s => s.assignedBot === b && (s.lifetime || (s.expiresAt && s.expiresAt > now)))
+      return !s && onlineBots.has(b)
+    })[0] || null
+  } else if (!botStillActive) {
+    botId = MAIN_BOTS.filter(b => {
+      const s = Object.values(subs).find(s => s.assignedBot === b && (s.lifetime || (s.expiresAt && s.expiresAt > now)))
+      return !s && onlineBots.has(b)
+    })[0] || null
+  }
 
   if (!botId) {
-    log(`[Refund] Alle Bots voll — zahle $${amount} zurueck an ${player}`)
-    sendCmd(`/msg ${player} Alle Bots vergeben! Dein Geld wird zurueckgegeben.`)
+    log(`[Refund] Kein freier Online-Bot — zahle ${amount} zurueck an ${player}`)
+    sendCmd(`/msg ${player} Aktuell sind alle Bots vergeben. Dein Geld wird zurueckgegeben.`)
     sendCmd(`/pay ${player} ${amount}`)
     setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
     return
