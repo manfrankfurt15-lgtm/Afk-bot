@@ -385,7 +385,7 @@ function createBot(account) {
       // DEBUG: !ping testet ob /msg funktioniert
       const msgPre = content || clean
       if (msgPre.includes('!ping') && isOwner) {
-        sendCmd(`/say PONG ok`)
+        sendCmd(`/msg ${OWNER} PONG ok`)
         return
       }
 
