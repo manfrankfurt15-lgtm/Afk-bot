@@ -419,9 +419,9 @@ function createBot() {
         sendCmd('/money')
       } else if (msg2.includes('!addbot') && isOwner) {
         lastCmd = Date.now()
-        const parts = (content || clean).trim().split(/\s+/)
-        const addPlayer = parts[1]
-        const addDays = parseInt(parts[2])
+        const addMatch = msg2.match(/!addbot\s+(\S+)\s+(\d+)/)
+        const addPlayer = addMatch ? addMatch[1] : null
+        const addDays   = addMatch ? parseInt(addMatch[2]) : NaN
         if (!addPlayer || isNaN(addDays) || addDays < 1) {
           sendCmd(`/say Nutzung: !addbot SpielerName Tage`)
         } else {
@@ -448,8 +448,8 @@ function createBot() {
         }
       } else if (msg2.includes('!removebot') && isOwner) {
         lastCmd = Date.now()
-        const parts2 = (content || clean).trim().split(/\s+/)
-        const remPlayer = parts2[1]
+        const remMatch = msg2.match(/!removebot\s+(\S+)/)
+        const remPlayer = remMatch ? remMatch[1] : null
         if (!remPlayer) {
           sendCmd(`/say Nutzung: !removebot SpielerName`)
         } else {
@@ -467,9 +467,9 @@ function createBot() {
         }
       } else if (msg2.includes('!extend') && isOwner) {
         lastCmd = Date.now()
-        const eParts = (content || clean).trim().split(/\s+/)
-        const ePlayer = eParts[1]
-        const eDays   = parseInt(eParts[2])
+        const extMatch = msg2.match(/!extend\s+(\S+)\s+(\d+)/)
+        const ePlayer = extMatch ? extMatch[1] : null
+        const eDays   = extMatch ? parseInt(extMatch[2]) : NaN
         if (!ePlayer || isNaN(eDays) || eDays < 1) {
           sendCmd(`/say Nutzung: !extend SpielerName Tage`)
         } else {
@@ -496,8 +496,8 @@ function createBot() {
         }
       } else if (msg2.includes('!kick') && isOwner) {
         lastCmd = Date.now()
-        const kParts = (content || clean).trim().split(/\s+/)
-        const kPlayer = kParts[1]
+        const kickMatch = msg2.match(/!kick\s+(\S+)/)
+        const kPlayer = kickMatch ? kickMatch[1] : null
         if (!kPlayer) {
           sendCmd(`/say Nutzung: !kick SpielerName`)
         } else {
