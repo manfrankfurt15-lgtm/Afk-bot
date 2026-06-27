@@ -351,15 +351,15 @@ function createBot(account) {
           const t2 = extractName(sender)
           if (msg2.includes('!tpahere')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} TPA-Here gesendet! ✅`)
+            sendCmd(`/msg ${t2} TPA-Here gesendet`)
             setTimeout(() => sendCmd(`/tpahere ${t2}`), 400)
           } else if (msg2.includes('!tpa')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} TPA gesendet! ✅`)
+            sendCmd(`/msg ${t2} TPA gesendet`)
             setTimeout(() => sendCmd(`/tpa ${t2}`), 400)
           } else if (msg2.includes('!home')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} Home-1 gesetzt! ✅`)
+            sendCmd(`/msg ${t2} Home gesetzt`)
             sendCmd('/sethome 1')
           } else if (msg2.includes('!info')) {
             lastCmd = now2
@@ -375,7 +375,7 @@ function createBot(account) {
       // DEBUG: !ping testet ob /msg funktioniert
       const msgPre = content || clean
       if (msgPre.includes('!ping') && isOwner) {
-        sendCmd(`/say PONG ok ✅`)
+        sendCmd(`/say PONG ok`)
         return
       }
 
@@ -388,23 +388,23 @@ function createBot(account) {
         if (isOwner && /!home\s+2/.test(msg)) {
           // Nur Owner: !home 2 → /sethome 2
           sendCmd('/sethome 2')
-          sendCmd(`/msg ${ownerBase} Home-2 gesetzt! ✅`)
+          sendCmd(`/msg ${ownerBase} Home gesetzt`)
         } else {
           // Alle (!home oder !home 1) → /sethome 1
           const t = extractName(sender)
           sendCmd('/sethome 1')
-          setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : t} Home-1 gesetzt! ✅`), 600)
+          setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : t} Home gesetzt`), 600)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA-Here gesendet! ✅`), 600)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA-Here gesendet`), 600)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA gesendet! ✅`), 600)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} TPA gesendet`), 600)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
