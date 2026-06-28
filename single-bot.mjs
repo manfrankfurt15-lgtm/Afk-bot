@@ -36,6 +36,12 @@ function getTier(amount) {
   return VALID_AMOUNTS[amount] || null
 }
 
+function payWithConfirm(sendCmd, player, amount) {
+  sendCmd(`/pay ${player} ${amount}`)
+  if (amount >= 5000) setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
+}
+
+
 const stripColors = s => s.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u00A7§]/g, '')
 
 function extractName(raw) {
@@ -129,8 +135,7 @@ async function processPayment(player, amount, sendCmd) {
   const tier = getTier(amount)
   if (!tier) {
     sendCmd(`/msg ${player} Ungültiger Betrag! Erlaubt: $45.000 | $150.000 | $1.250.000`)
-    sendCmd(`/pay ${player} ${amount}`)
-    setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
+    payWithConfirm(sendCmd, player, amount)
     log(`[Refund] Ungültiger Betrag $${amount} von ${player} → zurückgezahlt`)
     return
   }
@@ -154,8 +159,7 @@ async function processPayment(player, amount, sendCmd) {
   if (onlineBots.size === 0) {
     log(`[Refund] Kein Bot online auf blockbande.de — zahle ${amount} zurueck an ${player}`)
     sendCmd(`/msg ${player} Aktuell ist kein Bot online. Dein Geld wird zurueckgegeben.`)
-    sendCmd(`/pay ${player} ${amount}`)
-    setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
+    payWithConfirm(sendCmd, player, amount)
     return
   }
 
@@ -179,8 +183,7 @@ async function processPayment(player, amount, sendCmd) {
   if (!botId) {
     log(`[Refund] Kein freier Online-Bot — zahle ${amount} zurueck an ${player}`)
     sendCmd(`/msg ${player} Aktuell sind alle Bots vergeben. Dein Geld wird zurueckgegeben.`)
-    sendCmd(`/pay ${player} ${amount}`)
-    setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
+    payWithConfirm(sendCmd, player, amount)
     return
   }
 
