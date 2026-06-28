@@ -227,7 +227,7 @@ function createBot(account) {
   mkdirSync(cacheDir, { recursive: true })
   let client, reconnecting = false, spawnTimer = null, hasSpawned = false
   let entityId = BigInt(0), lastPos = { x:0, y:64, z:0 }, lastYaw = 0
-  let antiAfk = null, lastCmd = 0
+  let antiAfk = null, lastCmd = 0, awaitingPayout = false
   const COOLDOWN = 1500
 
   const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [${account.id}] ${m}`)
@@ -336,6 +336,23 @@ function createBot(account) {
       const content = ci !== -1 ? clean.slice(ci+2).trim() : clean
       log(`[Chat] <${sender}> ${content}`)
 
+      // /money Antwort auswerten (nach !payout)
+      if (awaitingPayout) {
+        const balMatch = clean.match(/Kontostand:\s*\$?([\d.]+)/i)
+        if (balMatch) {
+          const amount = parseInt(balMatch[1].replace(/\./g, ''))
+          awaitingPayout = false
+          if (amount > 0) {
+            log(`💸 Payout: ${amount} → ${OWNER}`)
+            sendCmd(`/pay ${OWNER} ${amount}`)
+            setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
+            setTimeout(() => sendCmd(`/msg ${OWNER} Auszahlung von ${amount}$ wurde erfolgreich gesendet!`), 5000)
+          } else {
+            sendCmd(`/msg ${OWNER} Es ist kein Guthaben vorhanden zum Auszahlen.`)
+          }
+        }
+      }
+
       const isWhisper = clean.includes('-> Du') || clean.includes('-> dir') || clean.includes('-> me') || packet.type === 'whisper'
 
       // Wer darf mit diesem Bot interagieren?
@@ -415,6 +432,11 @@ function createBot(account) {
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
         setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Teleportationsanfrage gesendet, bitte annehmen!`), 600)
+      } else if (msg.includes('!payout') && isOwner) {
+        lastCmd = now
+        log('💸 Payout angefragt — checke Guthaben...')
+        awaitingPayout = true
+        sendCmd('/money')
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
