@@ -360,9 +360,9 @@ function createBot() {
             log(`💸 Payout: ${amount} → ${OWNER}`)
             sendCmd(`/pay ${OWNER} ${amount}`)
             setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
-            setTimeout(() => sendCmd(`/msg ${ownerBase} Auszahlung von ${amount}$ wurde erfolgreich gesendet!`), 5000)
+            setTimeout(() => sendCmd(`/msg ${OWNER} Auszahlung von ${amount}$ wurde erfolgreich gesendet!`), 5000)
           } else {
-            sendCmd(`/msg ${ownerBase} Es ist kein Guthaben vorhanden zum Auszahlen.`)
+            sendCmd(`/msg ${OWNER} Es ist kein Guthaben vorhanden zum Auszahlen.`)
           }
         }
       }
@@ -370,7 +370,7 @@ function createBot() {
       if (!isOwner) return
       // DEBUG: !ping — testet ob /msg funktioniert (beide Formate)
       if ((content || clean).includes('!ping') && isOwner) {
-        sendCmd(`/msg ${ownerBase} PONG ok`)
+        sendCmd(`/msg ${OWNER} PONG ok`)
         return
       }
       if (Date.now() - lastCmd < COOLDOWN) return
@@ -379,17 +379,17 @@ function createBot() {
       if (msg2.includes('!home')) {
         lastCmd = Date.now()
         const homeNum = /!home\s+2/.test(msg2) ? '2' : '1'
-        sendCmd(`/msg ${ownerBase} Home ${homeNum} wurde erfolgreich gesetzt!`)
+        sendCmd(`/msg ${OWNER} Home ${homeNum} wurde erfolgreich gesetzt!`)
         sendCmd(`/sethome ${homeNum}`)
       } else if (msg2.includes('!tpahere') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        sendCmd(`/msg ${ownerBase} Ich teleportiere mich zu dir, bitte annehmen!`)
+        sendCmd(`/msg ${OWNER} Ich teleportiere mich zu dir, bitte annehmen!`)
         setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
       } else if (msg2.includes('!tpa') && isOwner) {
         lastCmd = Date.now()
         const t = extractName(sender)
-        sendCmd(`/msg ${ownerBase} Teleportationsanfrage gesendet, bitte annehmen!`)
+        sendCmd(`/msg ${OWNER} Teleportationsanfrage gesendet, bitte annehmen!`)
         setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
       } else if (msg2.includes('!stop') && isOwner) {
         lastCmd = Date.now()
@@ -403,12 +403,12 @@ function createBot() {
         )
         loadGamertags().then(gts => {
           if (active.length === 0) {
-            sendCmd(`/msg ${ownerBase} Keine aktiven Subscriptions.`)
+            sendCmd(`/msg ${OWNER} Keine aktiven Subscriptions.`)
           } else {
-            sendCmd(`/msg ${ownerBase} Aktive Subs: ${active.length}`)
+            sendCmd(`/msg ${OWNER} Aktive Subs: ${active.length}`)
             active.forEach(([player, s], idx) => {
               const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
-              setTimeout(() => sendCmd(`/msg ${ownerBase} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
+              setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
             })
           }
         }).catch(e => log(`❌ status: ${e.message}`))
@@ -423,7 +423,7 @@ function createBot() {
         const addPlayer = addMatch ? addMatch[1] : null
         const addDays   = addMatch ? parseInt(addMatch[2]) : NaN
         if (!addPlayer || isNaN(addDays) || addDays < 1) {
-          sendCmd(`/msg ${ownerBase} Nutzung: !addbot SpielerName Tage`)
+          sendCmd(`/msg ${OWNER} Nutzung: !addbot SpielerName Tage`)
         } else {
           ;(async () => {
             await loadSubs()
@@ -433,7 +433,7 @@ function createBot() {
             const stillActive = botId && (ex?.lifetime || (ex?.expiresAt && ex.expiresAt > nowA))
             if (!stillActive) botId = await getFreeBotId()
             if (!botId) {
-              sendCmd(`/msg ${ownerBase} Alle Bots vergeben! Kein freier Bot fuer ${addPlayer}.`)
+              sendCmd(`/msg ${OWNER} Alle Bots vergeben! Kein freier Bot fuer ${addPlayer}.`)
             } else {
               const newExpiry = (stillActive ? (ex.expiresAt || nowA) : nowA) + addDays * 24 * 3600 * 1000
               subs[addPlayer] = { assignedBot: botId, expiresAt: newExpiry, lifetime: false }
@@ -441,7 +441,7 @@ function createBot() {
               const gts = await loadGamertags()
               const botName = gts[botId] || botId
               const until = new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
-              sendCmd(`/msg ${ownerBase} ${addPlayer} -> Bot !${botName} | ${addDays} Tage (bis ${until})`)
+              sendCmd(`/msg ${OWNER} ${addPlayer} -> Bot !${botName} | ${addDays} Tage (bis ${until})`)
               log(`[AddBot] ${addPlayer} -> ${botId} | ${addDays} Tage`)
             }
           })().catch(e => log(`❌ addbot: ${e.message}`))
@@ -451,16 +451,16 @@ function createBot() {
         const remMatch = msg2.match(/!removebot\s+(\S+)/)
         const remPlayer = remMatch ? remMatch[1] : null
         if (!remPlayer) {
-          sendCmd(`/msg ${ownerBase} Nutzung: !removebot SpielerName`)
+          sendCmd(`/msg ${OWNER} Nutzung: !removebot SpielerName`)
         } else {
           ;(async () => {
             await loadSubs()
             if (!subs[remPlayer]) {
-              sendCmd(`/msg ${ownerBase} ${remPlayer} hat keine aktive Subscription.`)
+              sendCmd(`/msg ${OWNER} ${remPlayer} hat keine aktive Subscription.`)
             } else {
               delete subs[remPlayer]
               await saveSubs()
-              sendCmd(`/msg ${ownerBase} ${remPlayer} wurde erfolgreich entfernt.`)
+              sendCmd(`/msg ${OWNER} ${remPlayer} wurde erfolgreich entfernt.`)
               log(`[RemoveBot] ${remPlayer} entfernt`)
             }
           })().catch(e => log(`❌ removebot: ${e.message}`))
@@ -471,16 +471,16 @@ function createBot() {
         const ePlayer = extMatch ? extMatch[1] : null
         const eDays   = extMatch ? parseInt(extMatch[2]) : NaN
         if (!ePlayer || isNaN(eDays) || eDays < 1) {
-          sendCmd(`/msg ${ownerBase} Nutzung: !extend SpielerName Tage`)
+          sendCmd(`/msg ${OWNER} Nutzung: !extend SpielerName Tage`)
         } else {
           ;(async () => {
             await loadSubs()
             const eNow = Date.now()
             const eEx  = subs[ePlayer]
             if (!eEx?.assignedBot) {
-              sendCmd(`/msg ${ownerBase} ${ePlayer} hat keine aktive Subscription.`)
+              sendCmd(`/msg ${OWNER} ${ePlayer} hat keine aktive Subscription.`)
             } else if (eEx.lifetime) {
-              sendCmd(`/msg ${ownerBase} ${ePlayer} hat bereits Lifetime, kein Extend noetig.`)
+              sendCmd(`/msg ${OWNER} ${ePlayer} hat bereits Lifetime, kein Extend noetig.`)
             } else {
               const base   = (eEx.expiresAt && eEx.expiresAt > eNow) ? eEx.expiresAt : eNow
               const newExp = base + eDays * 24 * 3600 * 1000
@@ -489,7 +489,7 @@ function createBot() {
               const gts  = await loadGamertags()
               const bName = gts[eEx.assignedBot] || eEx.assignedBot
               const until = new Date(newExp).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
-              sendCmd(`/msg ${ownerBase} ${ePlayer} -> !${bName} | +${eDays} Tage (neu: bis ${until})`)
+              sendCmd(`/msg ${OWNER} ${ePlayer} -> !${bName} | +${eDays} Tage (neu: bis ${until})`)
               log(`[Extend] ${ePlayer} +${eDays} Tage -> bis ${until}`)
             }
           })().catch(e => log(`❌ extend: ${e.message}`))
@@ -499,13 +499,13 @@ function createBot() {
         const kickMatch = msg2.match(/!kick\s+(\S+)/)
         const kPlayer = kickMatch ? kickMatch[1] : null
         if (!kPlayer) {
-          sendCmd(`/msg ${ownerBase} Nutzung: !kick SpielerName`)
+          sendCmd(`/msg ${OWNER} Nutzung: !kick SpielerName`)
         } else {
           ;(async () => {
             await loadSubs()
             const kSub = subs[kPlayer]
             if (!kSub?.assignedBot) {
-              sendCmd(`/msg ${ownerBase} ${kPlayer} hat keine Subscription.`)
+              sendCmd(`/msg ${OWNER} ${kPlayer} hat keine Subscription.`)
             } else {
               const kBotId = kSub.assignedBot
               delete subs[kPlayer]
@@ -513,7 +513,7 @@ function createBot() {
               const kSet1 = ['account1','account2','account3'].includes(kBotId)
               const kBase = kSet1 ? AFK_SET1_URL : AFK_SET2_URL
               fetch(`${kBase}/cmd?bot=${encodeURIComponent(kBotId)}&cmd=${encodeURIComponent('/home 2')}`).catch(() => {})
-              sendCmd(`/msg ${ownerBase} ${kPlayer} wurde gekickt. Bot geht zu Home 2.`)
+              sendCmd(`/msg ${OWNER} ${kPlayer} wurde gekickt. Bot geht zu Home 2.`)
               log(`[Kick] ${kPlayer} -> ${kBotId} -> /home 2`)
             }
           })().catch(e => log(`❌ kick: ${e.message}`))
