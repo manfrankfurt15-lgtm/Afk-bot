@@ -68,7 +68,7 @@ http.createServer((req, res) => {
     loadSubs().then(() => {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true, subs: Object.keys(subs).length }))
-    })
+    }).catch(e => { try { res.writeHead(500); res.end(JSON.stringify({ ok: false, err: e.message })) } catch {} })
   } else if (req.url === '/online') {
     const online = {}
     for (const [id, inst] of Object.entries(botInstances)) online[id] = inst.isOnline
@@ -250,7 +250,7 @@ function createBot(account) {
     reconnecting = true
     if (reset) clearCache()
     log(`🔄 Reconnect in ${delay/1000}s...`)
-    setTimeout(() => { if (globalStopped) { reconnecting=false; return }; reconnecting=false; connect() }, delay)
+    setTimeout(() => { if (globalStopped) { reconnecting=false; return }; reconnecting=false; try { connect() } catch(e) { log(`❌ connect: ${e.message}`) } }, delay)
   }
 
   function connect() {
@@ -312,7 +312,7 @@ function createBot(account) {
           log('🏠 Kein aktiver Spieler → /home 2')
           setTimeout(() => sendCmd('/home 2'), 5000)
         }
-      })
+      }).catch(e => log(`⚠️ loadSubs@spawn: ${e.message}`))
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
       // Gestaffelt speichern: account1=8s, account2=12s, account3=16s, etc.
       const accountNum = parseInt(account.id.replace('account','')) || 1
@@ -378,14 +378,14 @@ function createBot(account) {
             const gt2 = readGamertag(cacheDir)
             sendCmd(`/msg ${t2} Dein Bot: ${gt2 ? '!'+gt2 : account.id} | Gueltig: ${timeStr2}`)
           }
-        })
+        }).catch(() => {})
         return
       }
 
       // DEBUG: !ping testet ob /msg funktioniert
       const msgPre = content || clean
       if (msgPre.includes('!ping') && isOwner) {
-        sendCmd(`/msg ${OWNER} PONG ok`)
+        sendCmd(`/msg ${ownerBase} PONG ok`)
         return
       }
 
@@ -398,23 +398,23 @@ function createBot(account) {
         if (isOwner && /!home\s+2/.test(msg)) {
           // Nur Owner: !home 2 → /sethome 2
           sendCmd('/sethome 2')
-          sendCmd(`/msg ${OWNER} Home 2 wurde erfolgreich gesetzt!`)
+          sendCmd(`/msg ${ownerBase} Home 2 wurde erfolgreich gesetzt!`)
         } else {
           // Alle (!home oder !home 1) → /sethome 1
           const t = extractName(sender)
           sendCmd('/sethome 1')
-          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Home 1 wurde erfolgreich gesetzt!`), 600)
+          setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : t} Home 1 wurde erfolgreich gesetzt!`), 600)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Ich hab dir eine tpahere anfrage geschickt!`), 600)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} Ich hab dir eine tpahere anfrage geschickt!`), 600)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Teleportationsanfrage gesendet, bitte annehmen!`), 600)
+        setTimeout(() => sendCmd(`/msg ${isOwner ? ownerBase : targetName} Teleportationsanfrage gesendet, bitte annehmen!`), 600)
       } else if (msg.includes('!stop') && isOwner) {
         lastCmd = now; log('🛑 Stop'); stopAllBots()
       } else if (msg.includes('!info')) {
@@ -424,7 +424,7 @@ function createBot(account) {
           const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
           const gt = readGamertag(cacheDir)
           const displayName = gt ? `!${gt}` : account.id
-          sendCmd(`/msg ${isOwner ? OWNER : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
+          sendCmd(`/msg ${isOwner ? ownerBase : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
         }
       }
     })
@@ -499,5 +499,7 @@ Promise.all([loadSubs(), ...bots.map(b => b.loadTokens())]).then(() => {
   bots.forEach((b, i) => setTimeout(() => b.connect(), i * 3000))
 })
 
+process.on('unhandledRejection', (reason) => { console.log('[System] ⚠️ Unhandled rejection:', reason?.message || String(reason)) })
+process.on('uncaughtException', (e) => { console.log('[System] ❌ Uncaught exception:', e.message); /* kein crash */ })
 process.on('SIGINT',  () => { bots.forEach(b => b.shutdown()); setTimeout(() => process.exit(0), 2000) })
 process.on('SIGTERM', () => { bots.forEach(b => b.shutdown()); setTimeout(() => process.exit(0), 2000) })
