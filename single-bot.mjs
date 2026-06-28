@@ -17,6 +17,9 @@ const RECONNECT_MS = 15000
 const SESSION_MS   = 180000
 const TIMEOUT_MS   = 20 * 60 * 1000
 
+// Modul-level logger (auch in processPayment nutzbar)
+const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [Bot] ${m}`)
+
 // Alle Haupt-Bots (für Subscription-Zuweisung)
 const AFK_SET1_URL = 'https://pranav-afk-bot.onrender.com'
 const AFK_SET2_URL = 'https://pranav-afk-bot-2.onrender.com'
@@ -276,7 +279,6 @@ function createBot() {
   let entityId = BigInt(0), antiAfk = null, lastCmd = 0, awaitingPayout = false
   const COOLDOWN = 1500
 
-  const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [Bot] ${m}`)
 
   function sendCmd(cmd) {
     try {
