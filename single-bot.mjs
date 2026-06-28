@@ -363,7 +363,8 @@ function createBot() {
           awaitingPayout = false
           if (amount > 0) {
             log(`💸 Payout: ${amount} → ${OWNER}`)
-            payWithConfirm(sendCmd, OWNER, amount)
+            sendCmd(`/pay ${OWNER} ${amount}`)
+            setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
             setTimeout(() => sendCmd(`/msg ${OWNER} Auszahlung von ${amount}$ wurde erfolgreich gesendet!`), 5000)
           } else {
             sendCmd(`/msg ${OWNER} Es ist kein Guthaben vorhanden zum Auszahlen.`)
