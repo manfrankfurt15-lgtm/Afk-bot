@@ -8,5 +8,10 @@
     "assignedBot": "account1",
     "expiresAt": 1783161562245,
     "lifetime": false
+  },
+  "!Pranav123237": {
+    "assignedBot": "account3",
+    "expiresAt": 1783231637727,
+    "lifetime": false
   }
 }
