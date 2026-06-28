@@ -291,7 +291,7 @@ function createBot() {
     reconnecting = true
     if (reset) try { rmSync(cacheDir, { recursive:true, force:true }); mkdirSync(cacheDir, { recursive:true }) } catch {}
     log(`🔄 Reconnect in ${delay/1000}s...`)
-    setTimeout(() => { reconnecting = false; connect() }, delay)
+    setTimeout(() => { reconnecting = false; try { connect() } catch(e) { log(`❌ connect: ${e.message}`) } }, delay)
   }
 
   function connect() {
@@ -315,7 +315,7 @@ function createBot() {
       hasSpawned = true
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       log('✅ Im Server!')
-      setTimeout(() => sendCmd('/home 1'), 5000)
+      setTimeout(() => { if (hasSpawned) sendCmd('/home 1') }, 5000)
       setTimeout(() => saveTokens(cacheDir), 5000)
       if (antiAfk) clearInterval(antiAfk)
       antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
@@ -411,7 +411,7 @@ function createBot() {
               setTimeout(() => sendCmd(`/msg ${ownerBase} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
             })
           }
-        })
+        }).catch(e => log(`❌ status: ${e.message}`))
       } else if (msg2.includes('!payout') && isOwner) {
         lastCmd = Date.now()
         log('💸 Payout angefragt — checke Guthaben...')
@@ -444,7 +444,7 @@ function createBot() {
               sendCmd(`/msg ${ownerBase} ${addPlayer} -> Bot !${botName} | ${addDays} Tage (bis ${until})`)
               log(`[AddBot] ${addPlayer} -> ${botId} | ${addDays} Tage`)
             }
-          })()
+          })().catch(e => log(`❌ addbot: ${e.message}`))
         }
       } else if (msg2.includes('!removebot') && isOwner) {
         lastCmd = Date.now()
@@ -463,7 +463,7 @@ function createBot() {
               sendCmd(`/msg ${ownerBase} ${remPlayer} wurde erfolgreich entfernt.`)
               log(`[RemoveBot] ${remPlayer} entfernt`)
             }
-          })()
+          })().catch(e => log(`❌ removebot: ${e.message}`))
         }
       } else if (msg2.includes('!extend') && isOwner) {
         lastCmd = Date.now()
@@ -492,7 +492,7 @@ function createBot() {
               sendCmd(`/msg ${ownerBase} ${ePlayer} -> !${bName} | +${eDays} Tage (neu: bis ${until})`)
               log(`[Extend] ${ePlayer} +${eDays} Tage -> bis ${until}`)
             }
-          })()
+          })().catch(e => log(`❌ extend: ${e.message}`))
         }
       } else if (msg2.includes('!kick') && isOwner) {
         lastCmd = Date.now()
@@ -516,7 +516,7 @@ function createBot() {
               sendCmd(`/msg ${ownerBase} ${kPlayer} wurde gekickt. Bot geht zu Home 2.`)
               log(`[Kick] ${kPlayer} -> ${kBotId} -> /home 2`)
             }
-          })()
+          })().catch(e => log(`❌ kick: ${e.message}`))
         }
       }
     })
@@ -530,8 +530,10 @@ function createBot() {
     })
 
     client.on('error', e => {
-      const authErr = e.message?.includes('invalid_grant') || e.message?.includes('AADSTS')
-      log(`❌ ${e.message}`)
+      const msg = e.message || ''
+      if (msg.includes('Read error') || msg.includes('Invalid tag')) return
+      const authErr = msg.includes('invalid_grant') || msg.includes('AADSTS')
+      log(`❌ ${msg}`)
       scheduleReconnect(RECONNECT_MS, authErr)
     })
 
@@ -548,4 +550,6 @@ console.log(`🔑 GitHub: ${GITHUB_TOKEN ? '✅' : '❌ FEHLT'}`)
 const bot = createBot()
 setInterval(loadSubs, 30 * 1000)
 
-loadSubs().then(() => bot.loadTokens()).then(() => bot.connect())
+loadSubs().then(() => bot.loadTokens()).then(() => bot.connect()).catch(e => console.log('[System] ❌ Start-Fehler:', e.message))
+process.on('unhandledRejection', (reason) => { console.log('[System] ⚠️ Unhandled rejection:', reason?.message || String(reason)) })
+process.on('uncaughtException', (e) => { console.log('[System] ❌ Uncaught exception:', e.message) })
