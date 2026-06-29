@@ -16,15 +16,6 @@ console.log = (...args) => {
   _origLog(...args)
 }
 
-// ── Log-Buffer (letzte 200 Zeilen für /logs Endpoint) ────────
-const logBuffer = []
-const _origLog = console.log
-console.log = (...args) => {
-  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
-  logBuffer.push({ t: new Date().toISOString(), m: line })
-  if (logBuffer.length > 200) logBuffer.shift()
-  _origLog(...args)
-}
 const __dirname    = dirname(fileURLToPath(import.meta.url))
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_API
 const GITHUB_REPO  = 'manfrankfurt15-lgtm/Afk-bot'
