@@ -6,6 +6,17 @@ import http from 'http'
 
 const PORT = process.env.PORT || 3000
 const botStatus = {}
+
+// ── Log-Buffer (letzten 200 Zeilen merken für /logs Endpoint) ─
+const logBuffer = []
+const _origLog = console.log
+console.log = (...args) => {
+  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  logBuffer.push({ t: new Date().toISOString(), m: line })
+  if (logBuffer.length > 200) logBuffer.shift()
+  _origLog(...args)
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_API
 const GITHUB_REPO = 'manfrankfurt15-lgtm/Afk-bot'
@@ -94,8 +105,11 @@ http.createServer((req, res) => {
       res.writeHead(404, {'Content-Type':'application/json'})
       res.end(JSON.stringify({ ok: false, reason: botId ? 'Bot nicht gefunden' : 'Kein bot= Parameter' }))
     }
+  } else if (req.url === '/logs') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ ok: true, count: logBuffer.length, logs: logBuffer }))
   } else {
-    res.writeHead(200); res.end('Bot läuft! Status: /ping')
+    res.writeHead(200); res.end('Bot läuft! Status: /ping | Logs: /logs')
   }
 }).listen(PORT, () => console.log(`Status-Server Port ${PORT}`))
 
