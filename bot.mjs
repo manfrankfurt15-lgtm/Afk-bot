@@ -245,6 +245,7 @@ function createBot(account) {
   mkdirSync(cacheDir, { recursive: true })
   let client, reconnecting = false, spawnTimer = null, hasSpawned = false
   let entityId = BigInt(0)
+  let lastPos = null
   let antiAfk = null, lastCmd = 0, awaitingPayout = false
   const COOLDOWN = 1500
 
