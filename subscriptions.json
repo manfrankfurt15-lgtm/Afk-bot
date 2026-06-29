@@ -3,5 +3,10 @@
     "assignedBot": "account1",
     "expiresAt": 1869046121775,
     "lifetime": false
+  },
+  "Saiioc": {
+    "assignedBot": "account2",
+    "expiresAt": 1782845704306,
+    "lifetime": false
   }
 }
