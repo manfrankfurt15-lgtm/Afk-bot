@@ -36,13 +36,17 @@ let subs = {}   // { "PlayerName": { assignedBot, expiresAt, lifetime } }
 async function loadSubs() {
   if (!GITHUB_TOKEN) return
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/subscriptions.json`, {
-      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' },
+      signal: controller.signal
     })
+    clearTimeout(timeout)
     if (!r.ok) return
     const j = await r.json()
     subs = JSON.parse(Buffer.from(j.content, 'base64').toString('utf8'))
-  } catch {}
+  } catch (e) { console.log('[loadSubs] ⚠️ Fehler:', e.message) }
 }
 
 // Wer ist dem Bot gerade zugewiesen (und noch aktiv)?
@@ -302,8 +306,20 @@ function createBot(account) {
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       botStatus[account.id] = { online: true, since: new Date().toISOString() }
       log('✅ Im Server!')
+      // Fallback: /home wird sowieso nach 30s ausgeführt falls loadSubs hängt
+      let homeSent = false
+      const homeFallback = setTimeout(() => {
+        if (!homeSent) {
+          homeSent = true
+          log('🏠 Fallback → /home 2 (loadSubs Timeout)')
+          sendCmd('/home 2')
+        }
+      }, 30000)
       // Nach Spawn: Subs neu laden und prüfen ob Bot noch zugewiesen ist
       loadSubs().then(() => {
+        if (homeSent) return
+        homeSent = true
+        clearTimeout(homeFallback)
         const assignedPlayer = getAssignedPlayer(account.id)
         if (assignedPlayer) {
           log(`🏠 Spieler ${assignedPlayer} aktiv → /home 1`)
@@ -312,7 +328,11 @@ function createBot(account) {
           log('🏠 Kein aktiver Spieler → /home 2')
           setTimeout(() => sendCmd('/home 2'), 5000)
         }
-      }).catch(e => log(`⚠️ loadSubs@spawn: ${e.message}`))
+      }).catch(e => {
+        clearTimeout(homeFallback)
+        if (!homeSent) { homeSent = true; sendCmd('/home 2') }
+        log(`⚠️ loadSubs@spawn: ${e.message}`)
+      })
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
       // Gestaffelt speichern: account1=8s, account2=12s, account3=16s, etc.
       const accountNum = parseInt(account.id.replace('account','')) || 1
