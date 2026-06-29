@@ -253,8 +253,12 @@ function createBot(account) {
     if (reconnecting || globalStopped) return
     reconnecting = true
     if (reset) clearCache()
-    log(`🔄 Reconnect in ${delay/1000}s...`)
-    setTimeout(() => { if (globalStopped) { reconnecting=false; return }; reconnecting=false; try { connect() } catch(e) { log(`❌ connect: ${e.message}`) } }, delay)
+    // Zufälliger Extra-Delay (0-10s) damit nicht alle Bots gleichzeitig reconnecten
+    const accountNum = parseInt(account.id.replace('account','')) || 1
+    const jitter = (accountNum - 1) * 5000 + Math.floor(Math.random() * 5000)
+    const totalDelay = delay + jitter
+    log(`🔄 Reconnect in ${Math.round(totalDelay/1000)}s...`)
+    setTimeout(() => { if (globalStopped) { reconnecting=false; return }; reconnecting=false; try { connect() } catch(e) { log(`❌ connect: ${e.message}`) } }, totalDelay)
   }
 
   function connect() {
