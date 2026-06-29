@@ -1,1 +1,7 @@
-{}
+{
+  "GugiGame": {
+    "assignedBot": "account1",
+    "expiresAt": 1869046121775,
+    "lifetime": false
+  }
+}
