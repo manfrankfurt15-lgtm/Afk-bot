@@ -5,6 +5,16 @@ import { mkdirSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import http from 'http'
 
 const PORT         = process.env.PORT || 3000
+// ── Log-Buffer & Status ───────────────────────────────────────
+let botOnline = false
+const logBuffer = []
+const _origLog = console.log
+console.log = (...args) => {
+  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  logBuffer.push({ t: new Date().toISOString(), m: line })
+  if (logBuffer.length > 200) logBuffer.shift()
+  _origLog(...args)
+}
 
 // ── Log-Buffer (letzte 200 Zeilen für /logs Endpoint) ────────
 const logBuffer = []
@@ -281,7 +291,11 @@ async function saveTokens(cacheDir) {
 // ── HTTP Status ───────────────────────────────────────────────
 http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify({ ok: true, service: 'single-bot', account: BOT_ACCOUNT, uptime: Math.floor(process.uptime()) }))
+  if (req.url === '/logs') {
+    res.end(JSON.stringify({ ok: true, count: logBuffer.length, logs: logBuffer }))
+  } else {
+    res.end(JSON.stringify({ ok: true, service: 'single-bot', account: BOT_ACCOUNT, uptime: Math.floor(process.uptime()), online: botOnline }))
+  }
 }).listen(PORT, () => console.log(`[Bot] Status-Server Port ${PORT}`))
 
 // ── Bot ───────────────────────────────────────────────────────
@@ -329,6 +343,7 @@ function createBot() {
     client.on('spawn', () => {
       hasSpawned = true
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
+      botOnline = true
       log('✅ Im Server!')
       setTimeout(() => { if (hasSpawned) sendCmd('/home 1') }, 5000)
       setTimeout(() => saveTokens(cacheDir), 5000)
@@ -537,6 +552,7 @@ function createBot() {
     })
 
     client.on('disconnect', r => {
+      botOnline = false
       const msg = r?.message || ''
       if (antiAfk) { clearInterval(antiAfk); antiAfk = null }
       const isSession = msg.includes('bereits auf dem Netzwerk') || msg.includes('already logged in')
