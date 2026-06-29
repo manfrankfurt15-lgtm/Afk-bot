@@ -230,7 +230,7 @@ function createBot(account) {
   const cacheDir = join(__dirname, 'auth-cache', account.id)
   mkdirSync(cacheDir, { recursive: true })
   let client, reconnecting = false, spawnTimer = null, hasSpawned = false
-  let entityId = BigInt(0), lastPos = { x:0, y:64, z:0 }, lastYaw = 0
+  let entityId = BigInt(0)
   let antiAfk = null, lastCmd = 0, awaitingPayout = false
   const COOLDOWN = 1500
 
@@ -260,6 +260,12 @@ function createBot(account) {
   function connect() {
     if (reconnecting || globalStopped) return
     hasSpawned = false
+    // Alten Client sauber aufräumen (verhindert Memory Leak)
+    if (client) {
+      try { client.removeAllListeners() } catch {}
+      try { client.disconnect() } catch {}
+      client = null
+    }
     log('Verbinde...')
     try {
       client = bedrock.createClient({ host:SERVER_HOST, port:SERVER_PORT, username:account.username, offline:false, connectTimeout:20000, skipPing:false, profilesFolder:cacheDir })
@@ -291,13 +297,6 @@ function createBot(account) {
           saveGamertag(account.id, selfGamertag)
           break
         }
-      }
-    })
-
-    client.on('move_player', p => {
-      if (p.runtime_entity_id === entityId) {
-        if (p.position) lastPos = p.position
-        if (p.yaw != null) lastYaw = p.yaw
       }
     })
 
@@ -500,7 +499,11 @@ function createBot(account) {
   function shutdown() {
     if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
     reconnecting = true
-    try { client?.disconnect() } catch {}
+    if (client) {
+      try { client.removeAllListeners() } catch {}
+      try { client.disconnect() } catch {}
+      client = null
+    }
   }
 
   const inst = { connect, forceConnect, shutdown, loadTokens: () => loadTokensFromGitHub(account.id, cacheDir), sendCommand: cmd => sendCmd(cmd), get isOnline() { return hasSpawned } }
