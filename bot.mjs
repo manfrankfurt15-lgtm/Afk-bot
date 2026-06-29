@@ -98,7 +98,7 @@ http.createServer((req, res) => {
     const b = botInstances[botId]
     if (b && cmd) {
       b.sendCommand(cmd)
-      if (player && msg) setTimeout(() => b.sendCommand(`/msg ${player} ${msg}`), 1500)
+      if (player && msg) setTimeout(() => b.sendCommand(`/msg @${player} ${msg}`), 1500)
       res.writeHead(200, {'Content-Type':'application/json'})
       res.end(JSON.stringify({ ok: true, bot: botId, cmd }))
     } else {
@@ -384,9 +384,9 @@ function createBot(account) {
             log(`💸 Payout: ${amount} → ${OWNER}`)
             sendCmd(`/pay ${OWNER} ${amount}`)
             setTimeout(() => sendCmd(`/pay ${OWNER} ${amount} confirm`), 3000)
-            setTimeout(() => sendCmd(`/msg ${OWNER} Auszahlung von ${amount}$ wurde erfolgreich gesendet!`), 5000)
+            setTimeout(() => sendCmd(`/msg @${OWNER} Auszahlung von ${amount}$ wurde erfolgreich gesendet!`), 5000)
           } else {
-            sendCmd(`/msg ${OWNER} Es ist kein Guthaben vorhanden zum Auszahlen.`)
+            sendCmd(`/msg @${OWNER} Es ist kein Guthaben vorhanden zum Auszahlen.`)
           }
         }
       }
@@ -416,22 +416,22 @@ function createBot(account) {
           const t2 = extractName(sender)
           if (msg2.includes('!tpahere')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} Ich hab dir eine tpahere anfrage geschickt!`)
+            sendCmd(`/msg @${t2} Ich hab dir eine tpahere anfrage geschickt!`)
             setTimeout(() => sendCmd(`/tpahere ${t2}`), 400)
           } else if (msg2.includes('!tpa')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} Teleportationsanfrage gesendet, bitte annehmen!`)
+            sendCmd(`/msg @${t2} Teleportationsanfrage gesendet, bitte annehmen!`)
             setTimeout(() => sendCmd(`/tpa ${t2}`), 400)
           } else if (msg2.includes('!home')) {
             lastCmd = now2
-            sendCmd(`/msg ${t2} Dein Home wurde erfolgreich gesetzt!`)
+            sendCmd(`/msg @${t2} Dein Home wurde erfolgreich gesetzt!`)
             sendCmd('/sethome 1')
           } else if (msg2.includes('!info')) {
             lastCmd = now2
             const entry2 = subs[ap2]
             const timeStr2 = entry2?.lifetime ? 'Lifetime' : entry2?.expiresAt ? `bis ${new Date(entry2.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
             const gt2 = readGamertag(cacheDir)
-            sendCmd(`/msg ${t2} Dein Bot: ${gt2 ? '!'+gt2 : account.id} | Gueltig: ${timeStr2}`)
+            sendCmd(`/msg @${t2} Dein Bot: ${gt2 ? '!'+gt2 : account.id} | Gueltig: ${timeStr2}`)
           }
         }).catch(() => {})
         return
@@ -440,7 +440,7 @@ function createBot(account) {
       // DEBUG: !ping testet ob /msg funktioniert
       const msgPre = content || clean
       if (msgPre.includes('!ping') && isOwner) {
-        sendCmd(`/msg ${OWNER} PONG ok`)
+        sendCmd(`/msg @${OWNER} PONG ok`)
         return
       }
 
@@ -453,23 +453,23 @@ function createBot(account) {
         if (isOwner && /!home\s+2/.test(msg)) {
           // Nur Owner: !home 2 → /sethome 2
           sendCmd('/sethome 2')
-          sendCmd(`/msg ${OWNER} Home 2 wurde erfolgreich gesetzt!`)
+          sendCmd(`/msg @${OWNER} Home 2 wurde erfolgreich gesetzt!`)
         } else {
           // Alle (!home oder !home 1) → /sethome 1
           const t = extractName(sender)
           sendCmd('/sethome 1')
-          setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : t} Home 1 wurde erfolgreich gesetzt!`), 600)
+          setTimeout(() => sendCmd(`/msg @${isOwner ? OWNER : t} Home 1 wurde erfolgreich gesetzt!`), 600)
         }
       } else if (msg.includes('!tpahere')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpahere ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Ich hab dir eine tpahere anfrage geschickt!`), 600)
+        setTimeout(() => sendCmd(`/msg @${isOwner ? OWNER : targetName} Ich hab dir eine tpahere anfrage geschickt!`), 600)
       } else if (msg.includes('!tpa')) {
         lastCmd = now
         const targetName = extractName(sender)
         setTimeout(() => sendCmd(`/tpa ${isOwner ? OWNER : targetName}`), 400)
-        setTimeout(() => sendCmd(`/msg ${isOwner ? OWNER : targetName} Teleportationsanfrage gesendet, bitte annehmen!`), 600)
+        setTimeout(() => sendCmd(`/msg @${isOwner ? OWNER : targetName} Teleportationsanfrage gesendet, bitte annehmen!`), 600)
       } else if (msg.includes('!payout') && isOwner) {
         lastCmd = now
         log('💸 Payout angefragt — checke Guthaben...')
@@ -484,7 +484,7 @@ function createBot(account) {
           const timeStr = entry?.lifetime ? 'Lifetime' : entry?.expiresAt ? `bis ${new Date(entry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : '?'
           const gt = readGamertag(cacheDir)
           const displayName = gt ? `!${gt}` : account.id
-          sendCmd(`/msg ${isOwner ? OWNER : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
+          sendCmd(`/msg @${isOwner ? OWNER : extractName(sender)} Dein Bot: ${displayName} | Gueltig: ${timeStr}`)
         }
       }
     })
