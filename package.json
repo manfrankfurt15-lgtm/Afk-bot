@@ -4,7 +4,7 @@
   "type": "module",
   "main": "bot.mjs",
   "scripts": {
-    "start": "node bot.mjs"
+    "start": "node --max-old-space-size=400 bot.mjs"
   },
   "dependencies": {
     "bedrock-protocol": "^3.57.0",
