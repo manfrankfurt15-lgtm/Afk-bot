@@ -2,14 +2,13 @@
 set -e
 
 echo ""
-echo "🚀 Oracle Cloud Setup - Minecraft AFK Bot"
-echo "==========================================="
+echo "🚀 Oracle Cloud Setup - Minecraft AFK Bot (alle Bots)"
+echo "======================================================="
 echo ""
 
 # GitHub Token abfragen falls nicht gesetzt
 if [ -z "$GITHUB_TOKEN" ]; then
-  echo "⚠️  Gib deinen GitHub Personal Access Token ein"
-  echo "   (Du findest ihn bei GitHub → Settings → Developer Settings → Tokens)"
+  echo "⚠️  Gib deinen GitHub Personal Access Token ein:"
   echo ""
   read -s -p "GitHub Token: " GITHUB_TOKEN
   echo ""
@@ -27,7 +26,7 @@ sudo apt-get install -y nodejs > /dev/null 2>&1
 echo "   ✅ Node.js $(node -v) installiert"
 
 echo ""
-echo "📦 Schritt 2/5: PM2 installieren (hält Bot am Laufen)..."
+echo "📦 Schritt 2/5: PM2 installieren..."
 sudo npm install -g pm2 > /dev/null 2>&1
 echo "   ✅ PM2 installiert"
 
@@ -48,13 +47,13 @@ echo "   ✅ Bot-Code geladen"
 
 echo ""
 echo "📦 Schritt 4/5: npm Pakete installieren..."
+cd "$BOT_DIR"
 npm install --silent
 echo "   ✅ Pakete installiert"
 
 echo ""
-echo "⚙️  Schritt 5/5: PM2 konfigurieren und starten..."
+echo "⚙️  Schritt 5/5: PM2 konfigurieren und alle 4 Bots starten..."
 
-# PM2 Ecosystem config erstellen
 cat > "$BOT_DIR/ecosystem.config.cjs" << EOF
 module.exports = {
   apps: [
@@ -102,19 +101,30 @@ module.exports = {
       restart_delay: 10000,
       max_restarts: 50,
       autorestart: true
+    },
+    {
+      name: 'pay-bot',
+      script: 'single-bot.mjs',
+      node_args: '--max-old-space-size=400',
+      env: {
+        GITHUB_TOKEN: '$GITHUB_TOKEN',
+        ACCOUNT_ID:   'paybot',
+        BOT_ACCOUNT:  'paybot',
+        BOT_USERNAME: 'PayBot',
+        PORT:         '3004'
+      },
+      restart_delay: 10000,
+      max_restarts: 50,
+      autorestart: true
     }
   ]
 }
 EOF
 
-# Laufende PM2 Prozesse stoppen (falls vorhanden)
 pm2 delete all > /dev/null 2>&1 || true
-
-# Bots starten
 cd "$BOT_DIR"
 pm2 start ecosystem.config.cjs
 
-# PM2 beim Neustart automatisch starten
 pm2 save > /dev/null 2>&1
 STARTUP_CMD=$(pm2 startup systemd -u $USER --hp $HOME 2>/dev/null | grep "sudo env")
 if [ -n "$STARTUP_CMD" ]; then
@@ -123,18 +133,18 @@ fi
 
 echo ""
 echo "=================================================="
-echo "✅ SETUP ABGESCHLOSSEN!"
+echo "✅ SETUP ABGESCHLOSSEN! Alle 4 Bots laufen!"
 echo "=================================================="
 echo ""
-echo "📊 Status anzeigen:    pm2 status"
-echo "📋 Logs Account 1:     pm2 logs afk-account1"
-echo "📋 Logs Account 2:     pm2 logs afk-account2"
-echo "📋 Logs Account 3:     pm2 logs afk-account3"
-echo "🔄 Neu starten:        pm2 restart all"
-echo "⛔ Stoppen:            pm2 stop all"
-echo "🔄 Bot updaten:        cd ~/Afk-bot && git pull && pm2 restart all"
+echo "📊 Status:            pm2 status"
+echo "📋 Logs Account 1:    pm2 logs afk-account1"
+echo "📋 Logs Account 2:    pm2 logs afk-account2"
+echo "📋 Logs Account 3:    pm2 logs afk-account3"
+echo "📋 Logs Pay Bot:      pm2 logs pay-bot"
+echo "🔄 Alle neu starten:  pm2 restart all"
+echo "🔄 Bot updaten:       cd ~/Afk-bot && git pull && pm2 restart all"
 echo ""
-echo "Die Bots starten jetzt automatisch bei jedem Server-Neustart!"
+echo "Die Bots starten automatisch bei jedem Server-Neustart!"
 echo ""
 
 pm2 status
