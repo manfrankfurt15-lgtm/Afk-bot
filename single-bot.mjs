@@ -32,8 +32,12 @@ const TIMEOUT_MS   = 20 * 60 * 1000
 const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [Bot] ${m}`)
 
 // Alle Haupt-Bots (für Subscription-Zuweisung)
-const AFK_SET1_URL = 'https://pranav-afk-bot.onrender.com'
-const AFK_SET2_URL = 'https://pranav-afk-bot-2.onrender.com'
+// Individuelle Bot-Services (je ein Account pro Service)
+const ACCOUNT_URLS = {
+  'account1': 'https://pranav-afk-account1.onrender.com',
+  'account2': 'https://pranav-afk-account2.onrender.com',
+  'account3': 'https://pranav-afk-account3.onrender.com',
+}
 const MAIN_BOTS = ['account1','account2','account3','account4','account5','account6']
 
 // Nur diese exakten Beträge sind erlaubt
@@ -112,15 +116,15 @@ async function loadGamertags() {
 async function getOnlineBots() {
   const online = new Set()
   try {
-    const [r1, r2] = await Promise.allSettled([
-      fetch(AFK_SET1_URL + '/online', { signal: AbortSignal.timeout(4000) }).then(r => r.json()),
-      fetch(AFK_SET2_URL + '/online', { signal: AbortSignal.timeout(4000) }).then(r => r.json())
-    ])
-    if (r1.status === 'fulfilled' && r1.value?.online) {
-      for (const [id, on] of Object.entries(r1.value.online)) if (on) online.add(id)
-    }
-    if (r2.status === 'fulfilled' && r2.value?.online) {
-      for (const [id, on] of Object.entries(r2.value.online)) if (on) online.add(id)
+    const results = await Promise.allSettled(
+      Object.entries(ACCOUNT_URLS).map(([id, url]) =>
+        fetch(url + '/online', { signal: AbortSignal.timeout(4000) })
+          .then(r => r.json())
+          .then(j => ({ id, isOnline: j?.online?.[id] === true }))
+      )
+    )
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value?.isOnline) online.add(r.value.id)
     }
   } catch {}
   return online
@@ -207,11 +211,9 @@ async function processPayment(player, amount, sendCmd) {
   subs[player] = { assignedBot: botId, expiresAt: newExpiry, lifetime: isLifetime }
   await saveSubs()
   // Sofort beide AFK-Bot-Services benachrichtigen → Kunden bekommt sofort Zugang
-  const BOT_URLS = [
-    'https://pranav-afk-bot.onrender.com/reload',
-    'https://pranav-afk-bot-2.onrender.com/reload'
-  ]
-  BOT_URLS.forEach(url => fetch(url).catch(() => {}))
+  // Alle Bot-Services nach Payment benachrichtigen (subs neu laden)
+  Object.values(ACCOUNT_URLS).forEach(url => fetch(url + '/reload').catch(() => {}))
+
 
   const gamertags = await loadGamertags()
   const botName = gamertags[botId] || `Bot ${botId.replace('account', '')}`
@@ -531,8 +533,7 @@ function createBot() {
               const kBotId = kSub.assignedBot
               delete subs[kPlayer]
               await saveSubs()
-              const kSet1 = ['account1','account2','account3'].includes(kBotId)
-              const kBase = kSet1 ? AFK_SET1_URL : AFK_SET2_URL
+              const kBase = ACCOUNT_URLS[kBotId] || Object.values(ACCOUNT_URLS)[0]
               fetch(`${kBase}/cmd?bot=${encodeURIComponent(kBotId)}&cmd=${encodeURIComponent('/home 2')}`).catch(() => {})
               sendCmd(`/msg ${OWNER} ${kPlayer} wurde gekickt. Bot geht zu Home 2.`)
               log(`[Kick] ${kPlayer} -> ${kBotId} -> /home 2`)
