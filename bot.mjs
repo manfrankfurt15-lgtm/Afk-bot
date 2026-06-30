@@ -333,7 +333,7 @@ function createBot(account) {
         if (!homeSent) {
           homeSent = true
           log('🏠 Fallback → /home 2 (loadSubs Timeout)')
-          sendCmd('/home 2')
+          if (hasSpawned) sendCmd('/home 2')
         }
       }, 30000)
       // Nach Spawn: Subs neu laden und prüfen ob Bot noch zugewiesen ist
@@ -344,10 +344,10 @@ function createBot(account) {
         const assignedPlayer = getAssignedPlayer(account.id)
         if (assignedPlayer) {
           log(`🏠 Spieler ${assignedPlayer} aktiv → /home 1`)
-          setTimeout(() => sendCmd('/home 1'), 5000)
+          setTimeout(() => { if (hasSpawned) sendCmd('/home 1') }, 5000)
         } else {
           log('🏠 Kein aktiver Spieler → /home 2')
-          setTimeout(() => sendCmd('/home 2'), 5000)
+          setTimeout(() => { if (hasSpawned) sendCmd('/home 2') }, 5000)
         }
       }).catch(e => {
         clearTimeout(homeFallback)
@@ -357,10 +357,10 @@ function createBot(account) {
           const cachedPlayer = getAssignedPlayer(account.id)
           if (cachedPlayer) {
             log(`🏠 (Cache) Spieler ${cachedPlayer} → /home 1 (loadSubs Fehler: ${e.message})`)
-            setTimeout(() => sendCmd('/home 1'), 5000)
+            setTimeout(() => { if (hasSpawned) sendCmd('/home 1') }, 5000)
           } else {
             log(`🏠 Kein Spieler im Cache → /home 2 (loadSubs Fehler: ${e.message})`)
-            setTimeout(() => sendCmd('/home 2'), 5000)
+            setTimeout(() => { if (hasSpawned) sendCmd('/home 2') }, 5000)
           }
         }
       })
