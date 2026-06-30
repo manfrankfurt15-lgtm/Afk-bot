@@ -348,8 +348,18 @@ function createBot(account) {
         }
       }).catch(e => {
         clearTimeout(homeFallback)
-        if (!homeSent) { homeSent = true; sendCmd('/home 2') }
-        log(`⚠️ loadSubs@spawn: ${e.message}`)
+        if (!homeSent) {
+          homeSent = true
+          // Auch bei Fehler: gecachte subs nutzen falls vorhanden
+          const cachedPlayer = getAssignedPlayer(account.id)
+          if (cachedPlayer) {
+            log(`🏠 (Cache) Spieler ${cachedPlayer} → /home 1 (loadSubs Fehler: ${e.message})`)
+            setTimeout(() => sendCmd('/home 1'), 5000)
+          } else {
+            log(`🏠 Kein Spieler im Cache → /home 2 (loadSubs Fehler: ${e.message})`)
+            setTimeout(() => sendCmd('/home 2'), 5000)
+          }
+        }
       })
       setTimeout(() => saveTokensToGitHub(account.id, cacheDir), 5000)
       // Gestaffelt speichern: account1=8s, account2=12s, account3=16s, etc.
