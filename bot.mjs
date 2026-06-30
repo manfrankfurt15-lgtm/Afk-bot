@@ -36,10 +36,13 @@ const ALL_ACCOUNTS = [
   { id: 'account6', username: 'Bot6' },
 ]
 const BOT_SET = process.env.BOT_SET
-const ACCOUNTS = BOT_SET === '1' ? ALL_ACCOUNTS.slice(0,3)
+const ACCOUNT_ID = process.env.ACCOUNT_ID   // einzelner Account-Modus (eigener Service)
+const ACCOUNTS = ACCOUNT_ID ? ALL_ACCOUNTS.filter(a => a.id === ACCOUNT_ID)
+               : BOT_SET === '1' ? ALL_ACCOUNTS.slice(0,3)
                : BOT_SET === '2' ? ALL_ACCOUNTS.slice(3,6)
                : ALL_ACCOUNTS
-console.log(`🎯 BOT_SET=${BOT_SET||'alle'} — ${ACCOUNTS.length} Accounts`)
+if (ACCOUNTS.length === 0) { console.error('❌ Kein Account gefunden für ACCOUNT_ID=' + ACCOUNT_ID); process.exit(1) }
+console.log(`🎯 ${ACCOUNT_ID ? 'ACCOUNT_ID='+ACCOUNT_ID : 'BOT_SET='+( BOT_SET||'alle')} — ${ACCOUNTS.length} Account(s)`)
 
 // ── Subscription Store ────────────────────────────────────────
 let subs = {}   // { "PlayerName": { assignedBot, expiresAt, lifetime } }
