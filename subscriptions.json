@@ -8,5 +8,10 @@
     "assignedBot": "account2",
     "expiresAt": 1792349791268,
     "lifetime": false
+  },
+  "Diefoxy": {
+    "assignedBot": "account3",
+    "expiresAt": 1782882518693,
+    "lifetime": false
   }
 }
