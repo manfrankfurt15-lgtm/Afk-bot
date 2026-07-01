@@ -8,5 +8,10 @@
     "assignedBot": "account2",
     "expiresAt": 1782977811399,
     "lifetime": false
+  },
+  "INDO_minus_REX": {
+    "assignedBot": "account3",
+    "expiresAt": 1782987303169,
+    "lifetime": false
   }
 }
