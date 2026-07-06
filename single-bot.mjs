@@ -28,34 +28,7 @@ const RECONNECT_MS = 15000
 const SESSION_MS   = 180000
 const TIMEOUT_MS   = 20 * 60 * 1000
 
-// Modul-level logger (auch in processPayment nutzbar)
 const log = m => console.log(`[${new Date().toLocaleTimeString('de-DE')}] [Bot] ${m}`)
-
-// Alle Haupt-Bots (für Subscription-Zuweisung)
-// Individuelle Bot-Services (je ein Account pro Service)
-const ACCOUNT_URLS = {
-  'account1': 'https://pranav-afk-account1.onrender.com',
-  'account2': 'https://pranav-afk-account2.onrender.com',
-  'account3': 'https://pranav-afk-account3.onrender.com',
-}
-const MAIN_BOTS = ['account1','account2','account3','account4','account5','account6']
-
-// Nur diese exakten Beträge sind erlaubt
-const VALID_AMOUNTS = {
-  45000:   { seconds: 7*24*3600,  label: '1 Woche' },
-  150000:  { seconds: 30*24*3600, label: '1 Monat' },
-  1250000: { seconds: 0,          label: 'Lifetime' },
-}
-
-function getTier(amount) {
-  return VALID_AMOUNTS[amount] || null
-}
-
-function payWithConfirm(sendCmd, player, amount) {
-  sendCmd(`/pay ${player} ${amount}`)
-  if (amount >= 5000) setTimeout(() => sendCmd(`/pay ${player} ${amount} confirm`), 3000)
-}
-
 
 const stripColors = s => s.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u00A7§]/g, '')
 
@@ -68,7 +41,7 @@ function extractName(raw) {
   return raw.trim()
 }
 
-// ── GitHub / Subscriptions ────────────────────────────────────
+// ── GitHub / Subscriptions (nur lesen) ───────────────────────
 let subsSha = null
 let subs = {}
 
@@ -86,21 +59,6 @@ async function loadSubs() {
   } catch (e) { console.log('[Bot] ⚠️ loadSubs:', e.message) }
 }
 
-async function saveSubs() {
-  if (!GITHUB_TOKEN) return
-  try {
-    const b64 = Buffer.from(JSON.stringify(subs, null, 2)).toString('base64')
-    const body = { message: '[auto] Subscriptions', content: b64 }
-    if (subsSha) body.sha = subsSha
-    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/subscriptions.json`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
-    if (r.ok) { const j = await r.json(); subsSha = j.content?.sha }
-  } catch (e) { console.log('[Bot] ⚠️ saveSubs:', e.message) }
-}
-
 async function loadGamertags() {
   if (!GITHUB_TOKEN) return {}
   try {
@@ -111,140 +69,6 @@ async function loadGamertags() {
     const j = await r.json()
     return JSON.parse(Buffer.from(j.content, 'base64').toString('utf8'))
   } catch { return {} }
-}
-
-async function getOnlineBots() {
-  const online = new Set()
-  try {
-    const results = await Promise.allSettled(
-      Object.entries(ACCOUNT_URLS).map(([id, url]) =>
-        fetch(url + '/online', { signal: AbortSignal.timeout(4000) })
-          .then(r => r.json())
-          .then(j => ({ id, isOnline: j?.online?.[id] === true }))
-      )
-    )
-    for (const r of results) {
-      if (r.status === 'fulfilled' && r.value?.isOnline) online.add(r.value.id)
-    }
-  } catch {}
-  return online
-}
-
-async function getFreeBotId() {
-  const now = Date.now()
-  const taken = new Set(
-    Object.values(subs)
-      .filter(s => s.assignedBot && (s.lifetime || (s.expiresAt && s.expiresAt > now)))
-      .map(s => s.assignedBot)
-  )
-  const online = await getOnlineBots()
-  // Nur online Bots zuweisen; falls keiner online → alle als Fallback
-  const available = MAIN_BOTS.filter(b => !taken.has(b) && online.has(b))
-  if (available.length > 0) return available[0]
-  // Kein Online-Bot frei
-  return null
-}
-
-// ── Zahlung verarbeiten ───────────────────────────────────────
-async function processPayment(player, amount, sendCmd) {
-  const tier = getTier(amount)
-  if (!tier) {
-    sendCmd(`/msg ${player} Ungültiger Betrag! Erlaubt: $45.000 | $150.000 | $1.250.000`)
-    payWithConfirm(sendCmd, player, amount)
-    log(`[Refund] Ungültiger Betrag $${amount} von ${player} → zurückgezahlt`)
-    return
-  }
-  const seconds = tier.seconds
-
-  await loadSubs()
-  const now = Date.now()
-  const existing = subs[player]
-
-  if (existing?.lifetime) {
-    sendCmd(`/msg ${player} Du hast bereits Lifetime! Bot: ${existing.assignedBot}`)
-    return
-  }
-
-  const isLifetime = tier.seconds === 0
-
-  // Online-Bots ermitteln (einmalig für alle Checks)
-  const onlineBots = await getOnlineBots()
-
-  // Kein einziger Bot auf blockbande.de online → sofort zurückzahlen
-  if (onlineBots.size === 0) {
-    log(`[Refund] Kein Bot online auf blockbande.de — zahle ${amount} zurueck an ${player}`)
-    sendCmd(`/msg ${player} Aktuell ist kein Bot online. Dein Geld wird zurueckgegeben.`)
-    payWithConfirm(sendCmd, player, amount)
-    return
-  }
-
-  let botId = existing?.assignedBot || null
-  const botStillActive = botId && (existing?.lifetime || (existing?.expiresAt && existing.expiresAt > now))
-
-  // Prüfen ob der bereits zugewiesene Bot auch wirklich online ist
-  if (botStillActive && !onlineBots.has(botId)) {
-    log(`[Info] Zugewiesener Bot ${botId} ist offline — suche freien Online-Bot`)
-    botId = MAIN_BOTS.filter(b => {
-      const s = Object.values(subs).find(s => s.assignedBot === b && (s.lifetime || (s.expiresAt && s.expiresAt > now)))
-      return !s && onlineBots.has(b)
-    })[0] || null
-  } else if (!botStillActive) {
-    botId = MAIN_BOTS.filter(b => {
-      const s = Object.values(subs).find(s => s.assignedBot === b && (s.lifetime || (s.expiresAt && s.expiresAt > now)))
-      return !s && onlineBots.has(b)
-    })[0] || null
-  }
-
-  if (!botId) {
-    log(`[Refund] Kein freier Online-Bot — zahle ${amount} zurueck an ${player}`)
-    sendCmd(`/msg ${player} Aktuell sind alle Bots vergeben. Dein Geld wird zurueckgegeben.`)
-    payWithConfirm(sendCmd, player, amount)
-    return
-  }
-
-  let newExpiry = null
-  if (!isLifetime) {
-    const base = botStillActive ? (existing.expiresAt || now) : now
-    newExpiry = base + seconds * 1000
-  }
-
-  subs[player] = { assignedBot: botId, expiresAt: newExpiry, lifetime: isLifetime }
-  await saveSubs()
-  // Sofort beide AFK-Bot-Services benachrichtigen → Kunden bekommt sofort Zugang
-  // Alle Bot-Services nach Payment benachrichtigen (subs neu laden)
-  Object.values(ACCOUNT_URLS).forEach(url => fetch(url + '/reload').catch(() => {}))
-
-
-  const gamertags = await loadGamertags()
-  const botName = gamertags[botId] || `Bot ${botId.replace('account', '')}`
-  const timeStr = isLifetime ? 'LIFETIME' : `bis ${new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
-
-  console.log(`[Bot] ✅ ${player} → ${botId} (${botName}) | $${amount} | ${timeStr}`)
-  sendCmd(`/msg ${player} Dir wurde der Bot !${botName} hinzugefuegt! Zeit: ${timeStr}`)
-  sendCmd(`/msg ${player} Befehl: !tpa`)
-}
-
-// ── Zahlungsmuster ────────────────────────────────────────────
-function detectPayment(raw, cb) {
-  const s = raw.replace(/[\u00a7\u00A7§]./g, '').replace(/[\u00a7\u00A7§]/g, '').replace(/[,.]/g, m => m === ',' ? '' : '')
-  const pats = [
-    /^(\S+)\s+hat\s+dir\s+\$?([\d]+)\s+ge(?:geben|zahlt)/i,
-    /Du\s+hast\s+\$?([\d]+)\s+von\s+(\S+)\s+erhalten/i,
-    /^(\S+)\s+paid\s+you\s+\$?([\d]+)/i,
-    /(\S+)\s*->\s*\$?([\d]+)/,
-    /\$?([\d]+)\s+(?:von|from)\s+(\S+)/i,
-    /^(\S+)\s+(?:überwiesen?|transferiert?)\s+\$?([\d]+)/i,
-  ]
-  for (const p of pats) {
-    const m = s.match(p)
-    if (m) {
-      const [player, amount] = p.source.startsWith('Du') || p.source.includes('\\$.*von')
-        ? [m[2], parseFloat(m[1])]
-        : [m[1], parseFloat(m[2])]
-      if (player && !isNaN(amount)) { cb(player, amount); return true }
-    }
-  }
-  return false
 }
 
 // ── GitHub Tokens ─────────────────────────────────────────────
@@ -284,6 +108,7 @@ async function saveTokens(cacheDir) {
 // ── HTTP Status ───────────────────────────────────────────────
 http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' })
+  if (req.url === '/reload') { loadSubs().catch(() => {}); res.end(JSON.stringify({ ok: true })); return }
   if (req.url === '/logs') {
     res.end(JSON.stringify({ ok: true, count: logBuffer.length, logs: logBuffer }))
   } else {
@@ -291,14 +116,24 @@ http.createServer((req, res) => {
   }
 }).listen(PORT, () => console.log(`[Bot] Status-Server Port ${PORT}`))
 
+// ── Befehl-Erkennung: exaktes Wort-Matching (verhindert !tpao → !tpa) ─
+const hasCmd = (msg, cmd) => msg.trim().split(/\s+/).includes(cmd)
+
 // ── Bot ───────────────────────────────────────────────────────
+function hasActiveSub() {
+  const now = Date.now()
+  return Object.values(subs).some(s =>
+    s.assignedBot === BOT_ACCOUNT &&
+    (s.lifetime || (s.expiresAt && s.expiresAt > now))
+  )
+}
+
 function createBot() {
   const cacheDir = join(__dirname, 'auth-cache', BOT_ACCOUNT)
   mkdirSync(cacheDir, { recursive: true })
-  let client, reconnecting = false, spawnTimer = null, hasSpawned = false
-  let entityId = BigInt(0), antiAfk = null, lastCmd = 0, awaitingPayout = false
+  let client, reconnecting = false, spawnTimer = null, hasSpawned = false, homeRetried = false, failStreak = 0
+  let entityId = BigInt(0), antiAfk = null, subCheckInterval = null, wasActiveSub = false, lastCmd = 0, awaitingPayout = false
   const COOLDOWN = 1500
-
 
   function sendCmd(cmd) {
     try {
@@ -311,9 +146,14 @@ function createBot() {
     if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
     if (reconnecting) return
     reconnecting = true
-    if (reset) try { rmSync(cacheDir, { recursive:true, force:true }); mkdirSync(cacheDir, { recursive:true }) } catch {}
+    failStreak++
+    const forceReset = reset || failStreak >= 5
+    if (forceReset) {
+      try { rmSync(cacheDir, { recursive:true, force:true }); mkdirSync(cacheDir, { recursive:true }) } catch {}
+      if (failStreak >= 5) { log(`🗑️ Cache geleert nach ${failStreak} Fehlversuchen — frische Auth`); failStreak = 0 }
+    }
     log(`🔄 Reconnect in ${delay/1000}s...`)
-    setTimeout(() => { reconnecting = false; try { connect() } catch(e) { log(`❌ connect: ${e.message}`) } }, delay)
+    setTimeout(() => { reconnecting = false; try { connect() } catch(e) { log(`❌ connect: ${e.message}`) } }, delay + Math.floor(Math.random() * 4000))
   }
 
   function connect() {
@@ -328,20 +168,33 @@ function createBot() {
       if (hasSpawned) return
       log('⏰ Timeout — kein Spawn')
       try { client?.disconnect() } catch {}
-      scheduleReconnect(RECONNECT_MS, readdirSync(cacheDir).length > 0)
+      scheduleReconnect(RECONNECT_MS, false) // failStreak wird hochgezählt, nach 5x auto-Cache-Clear
     }, TIMEOUT_MS)
 
     client.on('start_game', p => { entityId = p.runtime_entity_id ?? BigInt(0) })
 
     client.on('spawn', () => {
       hasSpawned = true
+      homeRetried = false
+      failStreak = 0
       if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null }
       botOnline = true
       log('✅ Im Server!')
-      setTimeout(() => { if (hasSpawned) sendCmd('/home 1') }, 5000)
+      wasActiveSub = hasActiveSub()
+      setTimeout(() => { if (hasSpawned) sendCmd(hasActiveSub() ? '/home 1' : '/home 2') }, 5000)
       setTimeout(() => saveTokens(cacheDir), 5000)
       if (antiAfk) clearInterval(antiAfk)
       antiAfk = setInterval(() => { try { client?.write('animate', { action_id:1, runtime_entity_id:entityId }) } catch {} }, 4*60*1000)
+      if (subCheckInterval) clearInterval(subCheckInterval)
+      subCheckInterval = setInterval(() => {
+        if (!hasSpawned) return
+        const nowHasSub = hasActiveSub()
+        if (wasActiveSub && !nowHasSub) {
+          log('📭 Subscription abgelaufen → /home 2')
+          sendCmd('/home 2')
+        }
+        wasActiveSub = nowHasSub
+      }, 60 * 1000)
     })
 
     client.on('text', packet => {
@@ -353,15 +206,14 @@ function createBot() {
       const content = ci !== -1 ? clean.slice(ci+2).trim() : clean
       log(`[Chat] <${sender}> ${content}`)
 
-      // Zahlung erkennen — NUR wenn [BlockBande] am Anfang steht (Server-Nachricht)
-      // Wenn ein Spielername VOR [BlockBande] steht → ignorieren
-      const isServerMsg = /^\[Blockbande\]/i.test(clean.trim())
-      const found = isServerMsg && detectPayment(clean, (player, amount) => {
-        log(`💰 ${player} zahlt $${amount}`)
-        processPayment(player, amount, sendCmd).catch(e => log(`❌ processPayment Fehler: ${e.message}`))
-      })
-      if (!found && isServerMsg && (clean.includes('$') || /hat dir|erhalten|zahlt|paid|überwiesen/i.test(clean))) {
-        log(`🔍 Unbekanntes Muster: "${clean}"`)
+      // /home retry loop: immer wieder bis die Welt geladen wird
+      if (hasSpawned && !homeRetried && clean.includes('Zielwelt konnte nicht gestartet werden')) {
+        homeRetried = true
+        log('Home-Welt Fehler -- retry in 12s...')
+        setTimeout(() => {
+          homeRetried = false
+          if (hasSpawned) sendCmd(hasActiveSub() ? '/home 1' : '/home 2')
+        }, 12000)
       }
 
       // Nur Owner (!Pranav123237) darf Befehle benutzen
@@ -371,7 +223,6 @@ function createBot() {
                       sender.endsWith(OWNER) || sender.endsWith(ownerBase) ||
                       srcName === OWNER || srcName === ownerBase ||
                       (isWhisper && (clean.includes(OWNER) || clean.includes(ownerBase)))
-
 
       // /money Antwort auswerten (nach !payout)
       if (awaitingPayout) {
@@ -390,35 +241,82 @@ function createBot() {
         }
       }
 
+      // Subscriber-Check: Spieler die diesem Bot zugewiesen sind duerfen !tpa benutzen
+      const nowCheck = Date.now()
+      const rawSender  = extractName(sender)
+      const senderClean = rawSender.startsWith('!') ? rawSender.slice(1) : rawSender
+      const srcClean    = srcName.startsWith('!') ? srcName.slice(1) : srcName
+
+      // Debug: bei Bot-Commands loggen was empfangen wurde
+      const msgCheck = content || clean
+      if (hasCmd(msgCheck, '!tpa') || hasCmd(msgCheck, '!tpahere') || hasCmd(msgCheck, '!home') || hasCmd(msgCheck, '!status') || hasCmd(msgCheck, '!info')) {
+        log('[Debug] cmd: sender=' + sender + ' | srcName=' + srcName + ' | senderClean=' + senderClean + ' | srcClean=' + srcClean + ' | BOT=' + BOT_ACCOUNT + ' | subs=' + JSON.stringify(Object.keys(subs)))
+      }
+
+      const matchedEntry = Object.entries(subs).find(([player, s]) => {
+        if (s.assignedBot !== BOT_ACCOUNT) return false
+        if (!s.lifetime && !(s.expiresAt && s.expiresAt > nowCheck)) return false
+        const p = player.startsWith('!') ? player.slice(1) : player
+        return p.toLowerCase() === senderClean.toLowerCase() ||
+               p.toLowerCase() === srcClean.toLowerCase() ||
+               player.toLowerCase() === sender.toLowerCase() ||
+               player.toLowerCase() === srcName.toLowerCase()
+      })
+      const isSubscriber = !!matchedEntry
+
+      if (isSubscriber && !isOwner) {
+        const msg3 = content || clean
+        const subName = matchedEntry ? matchedEntry[0] : null
+        const subTarget = rawSender || subName || senderClean || srcName || sender
+        if (hasCmd(msg3, '!tpahere')) {
+          log('🎮 Subscriber ' + subTarget + ' -> !tpahere')
+          sendCmd(`/msg ${subTarget} Ich hab dir eine tpahere anfrage geschickt!`)
+          setTimeout(() => sendCmd(`/tpahere ${subTarget}`), 400)
+        } else if (hasCmd(msg3, '!tpa')) {
+          log('🎮 Subscriber ' + subTarget + ' -> !tpa')
+          sendCmd(`/msg ${subTarget} Ich hab dir eine Tpa anfrage geschickt!`)
+          setTimeout(() => sendCmd(`/tpa ${subTarget}`), 400)
+        } else if (hasCmd(msg3, '!home')) {
+          log('🎮 Subscriber ' + subTarget + ' -> !home')
+          sendCmd('/sethome 1')
+          setTimeout(() => sendCmd(`/msg ${subTarget} Dein Home wurde erfolgreich gesetzt!`), 600)
+        } else if (hasCmd(msg3, '!info')) {
+          log('🎮 Subscriber ' + subTarget + ' -> !info')
+          const subEntry = matchedEntry ? matchedEntry[1] : null
+          const timeStr = subEntry?.lifetime ? 'Lifetime' : subEntry?.expiresAt ? `bis ${new Date(subEntry.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin' })}` : '?'
+          sendCmd(`/msg ${subTarget} Dein Bot: ${BOT_USERNAME} | Gueltig: ${timeStr}`)
+        }
+        return
+      }
+
       if (!isOwner) return
-      // DEBUG: !ping — testet ob /msg funktioniert (beide Formate)
-      if ((content || clean).includes('!ping') && isOwner) {
+
+      // DEBUG: !ping — testet ob /msg funktioniert
+      if (hasCmd(content || clean, '!ping') && isOwner) {
         sendCmd(`/msg ${OWNER} PONG ok`)
         return
       }
       if (Date.now() - lastCmd < COOLDOWN) return
 
       const msg2 = content || clean
-      if (msg2.includes('!home')) {
+      if (hasCmd(msg2, '!home')) {
         lastCmd = Date.now()
         const homeNum = /!home\s+2/.test(msg2) ? '2' : '1'
         sendCmd(`/msg ${OWNER} Home ${homeNum} wurde erfolgreich gesetzt!`)
         sendCmd(`/sethome ${homeNum}`)
-      } else if (msg2.includes('!tpahere') && isOwner) {
+      } else if (hasCmd(msg2, '!tpahere') && isOwner) {
         lastCmd = Date.now()
-        const t = extractName(sender)
         sendCmd(`/msg ${OWNER} Ich teleportiere mich zu dir, bitte annehmen!`)
         setTimeout(() => sendCmd(`/tpahere ${OWNER}`), 400)
-      } else if (msg2.includes('!tpa') && isOwner) {
+      } else if (hasCmd(msg2, '!tpa') && isOwner) {
         lastCmd = Date.now()
-        const t = extractName(sender)
         sendCmd(`/msg ${OWNER} Teleportationsanfrage gesendet, bitte annehmen!`)
         setTimeout(() => sendCmd(`/tpa ${OWNER}`), 400)
-      } else if (msg2.includes('!stop') && isOwner) {
+      } else if (hasCmd(msg2, '!stop') && isOwner) {
         lastCmd = Date.now()
         log('🛑 Stop vom Owner')
         process.exit(0)
-      } else if (msg2.includes('!status') && isOwner) {
+      } else if (hasCmd(msg2, '!status') && isOwner) {
         lastCmd = Date.now()
         const now3 = Date.now()
         const active = Object.entries(subs).filter(([, s]) =>
@@ -430,116 +328,16 @@ function createBot() {
           } else {
             sendCmd(`/msg ${OWNER} Aktive Subs: ${active.length}`)
             active.forEach(([player, s], idx) => {
-              const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`
+              const timeStr = s.lifetime ? 'Lifetime' : `bis ${new Date(s.expiresAt).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin' })}`
               setTimeout(() => sendCmd(`/msg ${OWNER} ${idx+1}. ${player} -> !${gts[s.assignedBot] || s.assignedBot} | ${timeStr}`), (idx+1)*600)
             })
           }
         }).catch(e => log(`❌ status: ${e.message}`))
-      } else if (msg2.includes('!payout') && isOwner) {
+      } else if (hasCmd(msg2, '!payout') && isOwner) {
         lastCmd = Date.now()
         log('💸 Payout angefragt — checke Guthaben...')
         awaitingPayout = true
         sendCmd('/money')
-      } else if (msg2.includes('!addbot') && isOwner) {
-        lastCmd = Date.now()
-        const addMatch = msg2.match(/!addbot\s+(\S+)\s+(\d+)/)
-        const addPlayer = addMatch ? addMatch[1] : null
-        const addDays   = addMatch ? parseInt(addMatch[2]) : NaN
-        if (!addPlayer || isNaN(addDays) || addDays < 1) {
-          sendCmd(`/msg ${OWNER} Nutzung: !addbot SpielerName Tage`)
-        } else {
-          ;(async () => {
-            await loadSubs()
-            const nowA = Date.now()
-            const ex = subs[addPlayer]
-            let botId = ex?.assignedBot || null
-            const stillActive = botId && (ex?.lifetime || (ex?.expiresAt && ex.expiresAt > nowA))
-            if (!stillActive) botId = await getFreeBotId()
-            if (!botId) {
-              sendCmd(`/msg ${OWNER} Alle Bots vergeben! Kein freier Bot fuer ${addPlayer}.`)
-            } else {
-              const newExpiry = (stillActive ? (ex.expiresAt || nowA) : nowA) + addDays * 24 * 3600 * 1000
-              subs[addPlayer] = { assignedBot: botId, expiresAt: newExpiry, lifetime: false }
-              await saveSubs()
-              const gts = await loadGamertags()
-              const botName = gts[botId] || botId
-              const until = new Date(newExpiry).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
-              sendCmd(`/msg ${OWNER} ${addPlayer} -> Bot !${botName} | ${addDays} Tage (bis ${until})`)
-              log(`[AddBot] ${addPlayer} -> ${botId} | ${addDays} Tage`)
-            }
-          })().catch(e => log(`❌ addbot: ${e.message}`))
-        }
-      } else if (msg2.includes('!removebot') && isOwner) {
-        lastCmd = Date.now()
-        const remMatch = msg2.match(/!removebot\s+(\S+)/)
-        const remPlayer = remMatch ? remMatch[1] : null
-        if (!remPlayer) {
-          sendCmd(`/msg ${OWNER} Nutzung: !removebot SpielerName`)
-        } else {
-          ;(async () => {
-            await loadSubs()
-            if (!subs[remPlayer]) {
-              sendCmd(`/msg ${OWNER} ${remPlayer} hat keine aktive Subscription.`)
-            } else {
-              delete subs[remPlayer]
-              await saveSubs()
-              sendCmd(`/msg ${OWNER} ${remPlayer} wurde erfolgreich entfernt.`)
-              log(`[RemoveBot] ${remPlayer} entfernt`)
-            }
-          })().catch(e => log(`❌ removebot: ${e.message}`))
-        }
-      } else if (msg2.includes('!extend') && isOwner) {
-        lastCmd = Date.now()
-        const extMatch = msg2.match(/!extend\s+(\S+)\s+(\d+)/)
-        const ePlayer = extMatch ? extMatch[1] : null
-        const eDays   = extMatch ? parseInt(extMatch[2]) : NaN
-        if (!ePlayer || isNaN(eDays) || eDays < 1) {
-          sendCmd(`/msg ${OWNER} Nutzung: !extend SpielerName Tage`)
-        } else {
-          ;(async () => {
-            await loadSubs()
-            const eNow = Date.now()
-            const eEx  = subs[ePlayer]
-            if (!eEx?.assignedBot) {
-              sendCmd(`/msg ${OWNER} ${ePlayer} hat keine aktive Subscription.`)
-            } else if (eEx.lifetime) {
-              sendCmd(`/msg ${OWNER} ${ePlayer} hat bereits Lifetime, kein Extend noetig.`)
-            } else {
-              const base   = (eEx.expiresAt && eEx.expiresAt > eNow) ? eEx.expiresAt : eNow
-              const newExp = base + eDays * 24 * 3600 * 1000
-              subs[ePlayer] = { ...eEx, expiresAt: newExp }
-              await saveSubs()
-              const gts  = await loadGamertags()
-              const bName = gts[eEx.assignedBot] || eEx.assignedBot
-              const until = new Date(newExp).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
-              sendCmd(`/msg ${OWNER} ${ePlayer} -> !${bName} | +${eDays} Tage (neu: bis ${until})`)
-              log(`[Extend] ${ePlayer} +${eDays} Tage -> bis ${until}`)
-            }
-          })().catch(e => log(`❌ extend: ${e.message}`))
-        }
-      } else if (msg2.includes('!kick') && isOwner) {
-        lastCmd = Date.now()
-        const kickMatch = msg2.match(/!kick\s+(\S+)/)
-        const kPlayer = kickMatch ? kickMatch[1] : null
-        if (!kPlayer) {
-          sendCmd(`/msg ${OWNER} Nutzung: !kick SpielerName`)
-        } else {
-          ;(async () => {
-            await loadSubs()
-            const kSub = subs[kPlayer]
-            if (!kSub?.assignedBot) {
-              sendCmd(`/msg ${OWNER} ${kPlayer} hat keine Subscription.`)
-            } else {
-              const kBotId = kSub.assignedBot
-              delete subs[kPlayer]
-              await saveSubs()
-              const kBase = ACCOUNT_URLS[kBotId] || Object.values(ACCOUNT_URLS)[0]
-              fetch(`${kBase}/cmd?bot=${encodeURIComponent(kBotId)}&cmd=${encodeURIComponent('/home 2')}`).catch(() => {})
-              sendCmd(`/msg ${OWNER} ${kPlayer} wurde gekickt. Bot geht zu Home 2.`)
-              log(`[Kick] ${kPlayer} -> ${kBotId} -> /home 2`)
-            }
-          })().catch(e => log(`❌ kick: ${e.message}`))
-        }
       }
     })
 
@@ -547,9 +345,13 @@ function createBot() {
       botOnline = false
       const msg = r?.message || ''
       if (antiAfk) { clearInterval(antiAfk); antiAfk = null }
+      if (subCheckInterval) { clearInterval(subCheckInterval); subCheckInterval = null }
       const isSession = msg.includes('bereits auf dem Netzwerk') || msg.includes('already logged in')
-      log(isSession ? '⏳ Session — warte 3min...' : `⚠️ ${stripColors(msg)}`)
-      scheduleReconnect(isSession ? SESSION_MS : RECONNECT_MS)
+      const isRateLimit = msg.includes('zu schnell') || msg.includes('warte etwas') || msg.includes('too fast') || msg.includes('Too Many') || msg.includes('Bitte warte')
+      if (isSession) log('⏳ Session — warte 3min...')
+      else if (isRateLimit) log('🕐 Rate-Limit — warte 75s...')
+      else log(`⚠️ ${stripColors(msg)}`)
+      scheduleReconnect(isSession ? SESSION_MS : isRateLimit ? 75000 : RECONNECT_MS)
     })
 
     client.on('error', e => {
@@ -560,7 +362,7 @@ function createBot() {
       scheduleReconnect(RECONNECT_MS, authErr)
     })
 
-    client.on('close', () => { if (antiAfk) { clearInterval(antiAfk); antiAfk = null }; log('Geschlossen.'); scheduleReconnect() })
+    client.on('close', () => { if (antiAfk) { clearInterval(antiAfk); antiAfk = null }; if (subCheckInterval) { clearInterval(subCheckInterval); subCheckInterval = null }; log('Geschlossen.'); scheduleReconnect() })
   }
 
   return { connect, loadTokens: () => loadTokens(cacheDir) }
@@ -571,7 +373,7 @@ console.log(`🤖 Single-Bot startet... (${BOT_ACCOUNT} / ${BOT_USERNAME})`)
 console.log(`🔑 GitHub: ${GITHUB_TOKEN ? '✅' : '❌ FEHLT'}`)
 
 const bot = createBot()
-setInterval(loadSubs, 30 * 1000)
+const _acctNum = parseInt(BOT_ACCOUNT.replace('account','')) || 0; setTimeout(() => setInterval(loadSubs, 5 * 60 * 1000), _acctNum * 40 * 1000)
 
 loadSubs().then(() => bot.loadTokens()).then(() => bot.connect()).catch(e => console.log('[System] ❌ Start-Fehler:', e.message))
 process.on('unhandledRejection', (reason) => { console.log('[System] ⚠️ Unhandled rejection:', reason?.message || String(reason)) })
