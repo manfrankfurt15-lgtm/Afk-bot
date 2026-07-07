@@ -18,10 +18,5 @@
     "assignedBot": "account4",
     "expiresAt": 1783438676174,
     "lifetime": false
-  },
-  "sync": {
-    "assignedBot": "account5",
-    "expiresAt": 1783528313968,
-    "lifetime": false
   }
 }
