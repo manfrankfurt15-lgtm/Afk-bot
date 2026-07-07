@@ -13,10 +13,5 @@
     "assignedBot": "account3",
     "expiresAt": null,
     "lifetime": true
-  },
-  "Minecraft": {
-    "assignedBot": "account4",
-    "expiresAt": 1783438676174,
-    "lifetime": false
   }
 }
