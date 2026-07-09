@@ -3,5 +3,10 @@
     "assignedBot": "account1",
     "expiresAt": 1869046121775,
     "lifetime": false
+  },
+  "o": {
+    "assignedBot": "account2",
+    "expiresAt": 1783683274560,
+    "lifetime": false
   }
 }
