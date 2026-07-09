@@ -13,5 +13,10 @@
     "assignedBot": "account3",
     "expiresAt": 1783769688227,
     "lifetime": false
+  },
+  "u": {
+    "assignedBot": "account4",
+    "expiresAt": 1783683308014,
+    "lifetime": false
   }
 }
