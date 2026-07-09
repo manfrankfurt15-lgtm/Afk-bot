@@ -23,5 +23,10 @@
     "assignedBot": "account5",
     "expiresAt": 1783769728621,
     "lifetime": false
+  },
+  "ppa": {
+    "assignedBot": "account6",
+    "expiresAt": 1783942539658,
+    "lifetime": false
   }
 }
