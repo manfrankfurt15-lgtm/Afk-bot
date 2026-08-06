@@ -18,5 +18,10 @@
     "assignedBot": "account7",
     "expiresAt": 1783689304372,
     "lifetime": false
+  },
+  "MoritzDerFuchs": {
+    "assignedBot": "account2",
+    "expiresAt": 1872406813227,
+    "lifetime": false
   }
 }
