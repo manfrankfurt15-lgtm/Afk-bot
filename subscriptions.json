@@ -23,5 +23,10 @@
     "assignedBot": "account2",
     "expiresAt": 1872409527227,
     "lifetime": false
+  },
+  "Leon_fire": {
+    "assignedBot": "account3",
+    "expiresAt": 1872408225542,
+    "lifetime": false
   }
 }
